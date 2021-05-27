@@ -3,7 +3,7 @@ This is the official repo. of https://arxiv.org/abs/2010.14808.
 
 The dataset and code will be publicly available upon acceptance.
 
-Thanks for your interest very much:)
+We are organizing a MICCAI challenge ([FLARE21](https://flare.grand-challenge.org/)) based on the fully supervised benchmark dataset. Welcome to participate!
 
 ```
 @article{Ma-2020-AbdomenCT-1K,
