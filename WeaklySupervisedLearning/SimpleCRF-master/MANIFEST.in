@@ -1,0 +1,14 @@
+include maxflow_python/*h
+include densecrf_python/*h
+include dependency/maxflow-v3.0/*h
+include dependency/maxflow-v3.0/*inc
+recursive-include dependency/densecrf/include/ *
+recursive-include dependency/densecrf/external/liblbfgs *
+include dependency/densecrf/src/*h
+include dependency/densecrf/external/liblbfgs/include/*h
+recursive-include dependency/densecrf3d/include/ *
+recursive-include dependency/densecrf3d/external/liblbfgs *
+include dependency/densecrf3d/src/*h
+include dependency/densecrf3d/external/liblbfgs/include/*h
+
+
