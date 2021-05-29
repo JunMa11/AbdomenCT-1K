@@ -12,7 +12,10 @@ Run
 
 `nnUNet_train 2d nnUNetTrainerV2 TaskXXX_MYTASK all`
 
+## Trained Models
 
+- [Dropbox](https://www.dropbox.com/s/jy9jmnwypumtm9h/BaselineModel.zip?dl=0)
+- [Baidu Net Disk](https://pan.baidu.com/s/1vwn88HBGwsAOpcy0Q2qXyQ ) (PW:2021)
 
 ## Inference
 
