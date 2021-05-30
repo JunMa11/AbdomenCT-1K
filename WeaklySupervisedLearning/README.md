@@ -27,7 +27,9 @@ Run
 
 ## CRF Postprocessing
 
+Set [input and output path](https://github.com/JunMa11/AbdomenCT-1K/blob/87fc206b70bbbdbb79a0e260bb9f9106d2feb555/WeaklySupervisedLearning/SimpleCRF-master/examples/AbdominalOrganCRFSeg.py#L27-L29) and run
 
+`python AbdominalOrganCRFSeg.py`
 
 
 
