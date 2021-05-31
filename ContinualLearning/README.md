@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The baseline is movitated by the well-known  learning without forgetting [1], which contains the following four steps:
+This is the official baseline model for [AbdomenCT-1K: Continual Learning Benchmark](https://abdomenct-1k-continual-learning.grand-challenge.org/Home/). The baseline is movitated by the well-known  learning without forgetting [1], which contains the following four steps:
 
 - Step 1. Individually training a liver segmentation nnU-Net [2] model based on the MSD Pancreas Ts (139) dataset.
 - Step 2. Using the trained liver segmentation model to infer KITS (210) and obtaining pseudo liver labels. Thus, each case in the KITS (210) has both liver and kidney labels. Then, we use the new labels to train a nnU-Net model that can segment both liver and kidney.
