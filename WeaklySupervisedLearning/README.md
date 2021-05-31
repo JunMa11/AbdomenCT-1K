@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This is the official baseline model for [AbdomenCT-1K: Weakly Supervised Learning Benchmark](https://abdomenct-1k-weaklysupervisedlearning.grand-challenge.org/Home/). The baseline is built on the combination of 2D nnUNet [1] and fully connected Conditional Random Fields (CRF)[2], which is motivated by Gao et al.'s method in addressing the missing annotation problem [3].
+The baseline is built on the combination of 2D nnUNet [1] and fully connected Conditional Random Fields (CRF)[2], which is motivated by Gao et al.'s method in addressing the missing annotation problem [3].
 
 
 

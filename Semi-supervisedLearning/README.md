@@ -3,7 +3,7 @@
 
 ## Introduction
 
-This is the official baseline model for [AbdomenCT-1K: Semi-supervised Learning Benchmark](https://abdomenct-1k-semi-supervised-learning.grand-challenge.org/Home/). Our baseline method is derived from Noisy-Student learning method in semi-supervised image classification [1] and semi-supervised urban scene segmentation [2] tasks. We employ 3D nnU-Net [3] for both teacher and student models. It includes five main steps:
+Our baseline method is derived from Noisy-Student learning method in semi-supervised image classification [1] and semi-supervised urban scene segmentation [2] tasks. We employ 3D nnU-Net [3] for both teacher and student models. It includes five main steps:
 
 * Step 1. Training a teacher model on the manually labelled data.
 * Step 2. Generating pseudo labels of the unlabelled data via the teacher model.
