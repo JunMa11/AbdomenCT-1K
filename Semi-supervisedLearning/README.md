@@ -24,7 +24,7 @@ Finetuing:
 ## Trained Models
 
 - [Dropbox](https://www.dropbox.com/sh/1wydqhoan040rdp/AADES1dHc0S1lqvGiDLWQfmKa?dl=0)
-- [Baidu Net Disk](https://pan.baidu.com/s/1vwn88HBGwsAOpcy0Q2qXyQ ) (PW:2021)
+- [Baidu Net Disk](https://pan.baidu.com/s/1LHEpIVA59sp0I8LWaAw2eQ) (PW:2021)
 
 ## Inference
 
