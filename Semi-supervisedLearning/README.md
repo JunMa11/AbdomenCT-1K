@@ -40,6 +40,24 @@ Run
 nnUNet_predict -i INPUT_FOLDER -o OUTPUT_FOLDER -t TASK_NAME_OR_ID -m 3d_fullres -tr nnUNetTrainerV2Finetune
 ```
 
+
+## Baseline Docker
+
+- [semi-suplearn_subtask1](https://hub.docker.com/repository/docker/gospelslave/semi-suplearn_subtask1)
+
+Run
+
+```
+
+# pull docker image from hub.docker.com
+docker pull gospelslave/semi-suplearn_subtask1
+
+# docker predict command
+docker container run --gpus "device=1" --name semi-suplearn_subtask1 --rm -v $PWD/TestImage/:/workspace/input/ -v $PWD/semi-suplearn_subtask1_outputs/:/workspace/outputs/ gospelslave/semi-suplearn_subtask1:latest /bin/bash -c "sh predict.sh"
+
+```
+
+
 ## Reference
 
 [1] Q. Xie, M.-T. Luong, E. Hovy, and Q. V. Le, “Self-training with noisy student improves imagenet classification,” in Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, 2020, pp. 10 687–10 698.
