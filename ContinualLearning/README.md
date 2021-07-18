@@ -34,6 +34,19 @@ Run
 
 `nnUNet_predict -i Test_FOLDER -o OUTPUT_FOLDER -t Task444_ContinualFourOrgans -m 3d_fullres`
 
+## Baseline Docker
+
+- [continual_learn](https://hub.docker.com/repository/docker/gospelslave/continual_learn)
+
+Run
+
+
+`docker pull gospelslave/continual_learn`
+
+`docker container run --gpus "device=1" --name continual_learn --rm -v $PWD/TestImage/:/workspace/input/ -v $PWD/continual_learn_outputs/:/workspace/outputs/ gospelslave/continual_learn:latest /bin/bash -c "sh predict.sh"`
+
+
+
 
 
 
