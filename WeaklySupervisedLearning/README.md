@@ -24,6 +24,23 @@ Run
 `nnUNet_predict -i INPUT_FOLDER -o OUTPUT_FOLDER -t TASK_NAME_OR_ID -m 2d --save_npz`
 
 
+## Baseline Docker
+
+- [weakly_suplearn_subtask1](https://hub.docker.com/repository/docker/gospelslave/weakly_suplearn_subtask1)
+
+Run
+
+```
+
+# pull docker image from hub.docker.com
+docker pull gospelslave/weakly_suplearn_subtask1
+
+# docker predict command
+docker container run --gpus "device=1" --name weakly_suplearn_subtask1 --rm -v $PWD/TestImage/:/workspace/input/ -v $PWD/continual_learn_outputs/:/workspace/outputs/ gospelslave/weakly_suplearn_subtask1:latest /bin/bash -c "sh predict.sh"
+
+```
+
+
 
 ## CRF Postprocessing
 
