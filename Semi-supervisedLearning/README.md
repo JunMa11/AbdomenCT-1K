@@ -15,11 +15,17 @@ Our baseline method is derived from Noisy-Student learning method in semi-superv
 
 Training from scratch:
 
-`nnUNet_train 3d_fullres nnUNetTrainerV2 TaskXXX_MYTASK all`
+```
+nnUNet_train 3d_fullres nnUNetTrainerV2 TaskXXX_MYTASK all
 
+```
 Finetuing:
 
-`nnUNet_train 3d_fullres nnUNetTrainerV2Finetune TaskXXX_MYTASK all`
+```
+
+nnUNet_train 3d_fullres nnUNetTrainerV2Finetune TaskXXX_MYTASK all
+
+```
 
 ## Trained Models
 
@@ -29,8 +35,10 @@ Finetuing:
 ## Inference
 
 Run
+```
 
-`nnUNet_predict -i INPUT_FOLDER -o OUTPUT_FOLDER -t TASK_NAME_OR_ID -m 2d -tr nnUNetTrainerV2Finetune`
+nnUNet_predict -i INPUT_FOLDER -o OUTPUT_FOLDER -t TASK_NAME_OR_ID -m 3d_fullres -tr nnUNetTrainerV2Finetune
+```
 
 ## Reference
 
