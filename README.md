@@ -12,7 +12,7 @@ We are organizing a MICCAI challenge ([FLARE21](https://flare.grand-challenge.or
 
 
 
-## Weakly Supervised Learning
+## Weakly Supervised Learning [(Grand-Challenge Homepage)](https://abdomenct-1k-weaklysupervisedlearning.grand-challenge.org/)
 
 ![weak-logo](https://github.com/JunMa11/AbdomenCT-1K/blob/main/WeaklySupervisedLearning/WeaklySupervised-GrandChallenge-Logo.jpeg)
 
