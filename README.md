@@ -5,6 +5,24 @@ The dataset and code will be publicly available upon acceptance.
 
 We are organizing a MICCAI challenge ([FLARE21](https://flare.grand-challenge.org/)) based on the fully supervised benchmark dataset. Welcome to participate!
 
+
+
+
+## Fully Supervised Learning
+
+
+
+## Weakly Supervised Learning
+
+![weak-logo](https://github.com/JunMa11/AbdomenCT-1K/blob/main/WeaklySupervisedLearning/WeaklySupervised-GrandChallenge-Logo.jpeg)
+
+
+
+
+
+
+
+
 ```
 @article{Ma-2020-AbdomenCT-1K,
   title={AbdomenCT-1K: Is Abdominal Organ Segmentation A Solved Problem?},
