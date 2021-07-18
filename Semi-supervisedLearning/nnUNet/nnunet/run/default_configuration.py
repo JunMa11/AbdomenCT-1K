@@ -67,7 +67,6 @@ def get_default_configuration(network, task, network_trainer, plans_identifier=d
     print("For that I will be using the following configuration:")
     summarize_plans(plans_file)
     print("I am using stage %d from these plans" % stage)
-    print("output folder: %s" % output_folder_name)
 
     if (network == '2d' or len(possible_stages) > 1) and not network == '3d_lowres':
         batch_dice = True

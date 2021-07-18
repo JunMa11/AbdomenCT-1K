@@ -29,6 +29,7 @@ from batchgenerators.utilities.file_and_folder_operations import *
 import numpy as np
 from nnunet.utilities.one_hot_encoding import to_one_hot
 import shutil
+
 matplotlib.use("agg")
 
 
@@ -137,7 +138,8 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
                         "will wait all winter for your model to finish!")
 
                 self.tr_gen, self.val_gen = get_default_augmentation(self.dl_tr, self.dl_val,
-                                                                     self.data_aug_params['patch_size_for_spatialtransform'],
+                                                                     self.data_aug_params[
+                                                                         'patch_size_for_spatialtransform'],
                                                                      self.data_aug_params)
                 self.print_to_log_file("TRAINING KEYS:\n %s" % (str(self.dataset_tr.keys())))
                 self.print_to_log_file("VALIDATION KEYS:\n %s" % (str(self.dataset_val.keys())))
@@ -151,7 +153,7 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
                  step_size: float = 0.5,
                  save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
                  validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
-                 force_separate_z: bool = None, interpolation_order: int = 3, interpolation_order_z: int = 0):
+                 segmentation_export_kwargs: dict = None, run_postprocessing_on_folds: bool = True):
 
         current_mode = self.network.training
         self.network.eval()
@@ -160,6 +162,20 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
         if self.dataset_val is None:
             self.load_dataset()
             self.do_split()
+
+        if segmentation_export_kwargs is None:
+            if 'segmentation_export_params' in self.plans.keys():
+                force_separate_z = self.plans['segmentation_export_params']['force_separate_z']
+                interpolation_order = self.plans['segmentation_export_params']['interpolation_order']
+                interpolation_order_z = self.plans['segmentation_export_params']['interpolation_order_z']
+            else:
+                force_separate_z = None
+                interpolation_order = 1
+                interpolation_order_z = 0
+        else:
+            force_separate_z = segmentation_export_kwargs['force_separate_z']
+            interpolation_order = segmentation_export_kwargs['interpolation_order']
+            interpolation_order_z = segmentation_export_kwargs['interpolation_order_z']
 
         output_folder = join(self.output_folder, validation_folder_name)
         maybe_mkdir_p(output_folder)
@@ -177,7 +193,7 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
         transpose_backward = self.plans.get('transpose_backward')
 
         for k in self.dataset_val.keys():
-            properties = self.dataset[k]['properties']
+            properties = load_pickle(self.dataset[k]['properties_file'])
             data = np.load(self.dataset[k]['data_file'])['data']
 
             # concat segmentation of previous step
@@ -188,9 +204,14 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
             data[-1][data[-1] == -1] = 0
             data_for_net = np.concatenate((data[:-1], to_one_hot(seg_from_prev_stage[0], range(1, self.num_classes))))
 
-            softmax_pred = self.predict_preprocessed_data_return_seg_and_softmax(
-                data_for_net, do_mirroring, mirror_axes, use_sliding_window, step_size, use_gaussian,
-                all_in_gpu=all_in_gpu)[1]
+            softmax_pred = self.predict_preprocessed_data_return_seg_and_softmax(data_for_net,
+                                                                                 do_mirroring=do_mirroring,
+                                                                                 mirror_axes=mirror_axes,
+                                                                                 use_sliding_window=use_sliding_window,
+                                                                                 step_size=step_size,
+                                                                                 use_gaussian=use_gaussian,
+                                                                                 all_in_gpu=all_in_gpu,
+                                                                                 mixed_precision=self.fp16)[1]
 
             if transpose_backward is not None:
                 transpose_backward = self.plans.get('transpose_backward')
@@ -213,13 +234,15 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
             if np.prod(softmax_pred.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
                 np.save(fname + ".npy", softmax_pred)
                 softmax_pred = fname + ".npy"
+
             results.append(export_pool.starmap_async(save_segmentation_nifti_from_softmax,
-                                                         ((softmax_pred, join(output_folder, fname + ".nii.gz"),
-                                                           properties, interpolation_order, None, None, None,
-                                                           softmax_fname, None, force_separate_z,
-                                                           interpolation_order_z),
-                                                          )
-                                                         )
+                                                     ((softmax_pred, join(output_folder, fname + ".nii.gz"),
+                                                       properties, interpolation_order, self.regions_class_order,
+                                                       None, None,
+                                                       softmax_fname, None, force_separate_z,
+                                                       interpolation_order_z),
+                                                      )
+                                                     )
                            )
 
             pred_gt_tuples.append([join(output_folder, fname + ".nii.gz"),
@@ -234,15 +257,16 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
                              json_author="Fabian", json_description="",
                              json_task=task)
 
-        # in the old nnunet we would stop here. Now we add a postprocessing. This postprocessing can remove everything
-        # except the largest connected component for each class. To see if this improves results, we do this for all
-        # classes and then rerun the evaluation. Those classes for which this resulted in an improved dice score will
-        # have this applied during inference as well
-        self.print_to_log_file("determining postprocessing")
-        determine_postprocessing(self.output_folder, self.gt_niftis_folder, validation_folder_name,
-                                 final_subf_name=validation_folder_name + "_postprocessed", debug=debug)
-        # after this the final predictions for the vlaidation set can be found in validation_folder_name_base + "_postprocessed"
-        # They are always in that folder, even if no postprocessing as applied!
+        if run_postprocessing_on_folds:
+            # in the old nnunet we would stop here. Now we add a postprocessing. This postprocessing can remove everything
+            # except the largest connected component for each class. To see if this improves results, we do this for all
+            # classes and then rerun the evaluation. Those classes for which this resulted in an improved dice score will
+            # have this applied during inference as well
+            self.print_to_log_file("determining postprocessing")
+            determine_postprocessing(self.output_folder, self.gt_niftis_folder, validation_folder_name,
+                                     final_subf_name=validation_folder_name + "_postprocessed", debug=debug)
+            # after this the final predictions for the vlaidation set can be found in validation_folder_name_base + "_postprocessed"
+            # They are always in that folder, even if no postprocessing as applied!
 
         # detemining postprocesing on a per-fold basis may be OK for this fold but what if another fold finds another
         # postprocesing to be better? In this case we need to consolidate. At the time the consolidation is going to be
@@ -262,3 +286,5 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
                     sleep(1)
 
         self.network.train(current_mode)
+        export_pool.close()
+        export_pool.join()

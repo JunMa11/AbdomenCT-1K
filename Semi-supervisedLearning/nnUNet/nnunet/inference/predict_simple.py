@@ -12,9 +12,9 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+
 import sys
 sys.path.append('..')
-sys.path.append('../..')
 
 import argparse
 import torch
@@ -105,20 +105,25 @@ def main():
     parser.add_argument("--overwrite_existing", required=False, default=False, action="store_true",
                         help="Set this flag if the target folder contains predictions that you would like to overwrite")
 
-    parser.add_argument("--fp16", required=False, help="Flag for inference in FP16, default = off. DO NOT USE! "
-                                                       "It doesn't work", action="store_true")
-
     parser.add_argument("--mode", type=str, default="normal", required=False, help="Hands off!")
     parser.add_argument("--all_in_gpu", type=str, default="None", required=False, help="can be None, False or True. "
                                                                                        "Do not touch.")
     parser.add_argument("--step_size", type=float, default=0.5, required=False, help="don't touch")
-    parser.add_argument("--interp_order", required=False, default=3, type=int,
-                        help="order of interpolation for segmentations, has no effect if mode=fastest. Do not touch this.")
-    parser.add_argument("--interp_order_z", required=False, default=0, type=int,
-                        help="order of interpolation along z is z is done differently. Do not touch this.")
-    parser.add_argument("--force_separate_z", required=False, default="None", type=str,
-                        help="force_separate_z resampling. Can be None, True or False, has no effect if mode=fastest. "
-                             "Do not touch this.")
+    # parser.add_argument("--interp_order", required=False, default=3, type=int,
+    #                     help="order of interpolation for segmentations, has no effect if mode=fastest. Do not touch this.")
+    # parser.add_argument("--interp_order_z", required=False, default=0, type=int,
+    #                     help="order of interpolation along z is z is done differently. Do not touch this.")
+    # parser.add_argument("--force_separate_z", required=False, default="None", type=str,
+    #                     help="force_separate_z resampling. Can be None, True or False, has no effect if mode=fastest. "
+    #                          "Do not touch this.")
+    parser.add_argument('-chk',
+                        help='checkpoint name, default: model_final_checkpoint',
+                        required=False,
+                        default='model_final_checkpoint')
+    parser.add_argument('--disable_mixed_precision', default=False, action='store_true', required=False,
+                        help='Predictions are done with mixed precision by default. This improves speed and reduces '
+                             'the required vram. If you want to disable mixed precision you can set this flag. Note '
+                             'that yhis is not recommended (mixed precision is ~2x faster!)')
 
     args = parser.parse_args()
     input_folder = args.input_folder
@@ -131,11 +136,10 @@ def main():
     num_threads_preprocessing = args.num_threads_preprocessing
     num_threads_nifti_save = args.num_threads_nifti_save
     disable_tta = args.disable_tta
-    fp16 = args.fp16
     step_size = args.step_size
-    interp_order = args.interp_order
-    interp_order_z = args.interp_order_z
-    force_separate_z = args.force_separate_z
+    # interp_order = args.interp_order
+    # interp_order_z = args.interp_order_z
+    # force_separate_z = args.force_separate_z
     overwrite_existing = args.overwrite_existing
     mode = args.mode
     all_in_gpu = args.all_in_gpu
@@ -152,17 +156,14 @@ def main():
     assert model in ["2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"], "-m must be 2d, 3d_lowres, 3d_fullres or " \
                                                                              "3d_cascade_fullres"
 
-    if force_separate_z == "None":
-        force_separate_z = None
-    elif force_separate_z == "False":
-        force_separate_z = False
-    elif force_separate_z == "True":
-        force_separate_z = True
-    else:
-        raise ValueError("force_separate_z must be None, True or False. Given: %s" % force_separate_z)
-
-    if fp16:
-        raise RuntimeError("FP16 support for inference does not work yet. Sorry :-/")
+    # if force_separate_z == "None":
+    #     force_separate_z = None
+    # elif force_separate_z == "False":
+    #     force_separate_z = False
+    # elif force_separate_z == "True":
+    #     force_separate_z = True
+    # else:
+    #     raise ValueError("force_separate_z must be None, True or False. Given: %s" % force_separate_z)
 
     if lowres_segmentations == "None":
         lowres_segmentations = None
@@ -200,9 +201,8 @@ def main():
         predict_from_folder(model_folder_name, input_folder, lowres_output_folder, folds, False,
                             num_threads_preprocessing, num_threads_nifti_save, None, part_id, num_parts, not disable_tta,
                             overwrite_existing=overwrite_existing, mode=mode, overwrite_all_in_gpu=all_in_gpu,
-                            fp16=fp16,
-                            step_size=step_size, force_separate_z=force_separate_z, interp_order=interp_order,
-                            interp_order_z=interp_order_z)
+                            mixed_precision=not args.disable_mixed_precision,
+                            step_size=step_size)
         lowres_segmentations = lowres_output_folder
         torch.cuda.empty_cache()
         print("3d_lowres done")
@@ -219,9 +219,9 @@ def main():
 
     predict_from_folder(model_folder_name, input_folder, output_folder, folds, save_npz, num_threads_preprocessing,
                         num_threads_nifti_save, lowres_segmentations, part_id, num_parts, not disable_tta,
-                        overwrite_existing=overwrite_existing, mode=mode, overwrite_all_in_gpu=all_in_gpu, fp16=fp16,
-                        step_size=step_size, force_separate_z=force_separate_z, interp_order=interp_order,
-                        interp_order_z=interp_order_z)
+                        overwrite_existing=overwrite_existing, mode=mode, overwrite_all_in_gpu=all_in_gpu,
+                        mixed_precision=not args.disable_mixed_precision,
+                        step_size=step_size, checkpoint_name=args.chk)
 
 
 if __name__ == "__main__":

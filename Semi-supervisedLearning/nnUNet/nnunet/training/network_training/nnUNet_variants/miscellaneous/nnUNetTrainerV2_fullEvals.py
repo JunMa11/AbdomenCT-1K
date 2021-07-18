@@ -96,7 +96,7 @@ class nnUNetTrainerV2_fullEvals(nnUNetTrainerV2):
         results = []
 
         for k in self.dataset_val.keys():
-            properties = self.dataset[k]['properties']
+            properties = load_pickle(self.dataset[k]['properties_file'])
             fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
             if overwrite or (not isfile(join(output_folder, fname + ".nii.gz"))) or \
                     (save_softmax and not isfile(join(output_folder, fname + ".npz"))):
@@ -104,9 +104,15 @@ class nnUNetTrainerV2_fullEvals(nnUNetTrainerV2):
 
                 #print(k, data.shape)
 
-                softmax_pred = self.predict_preprocessed_data_return_seg_and_softmax(
-                    data[:-1], do_mirroring, mirror_axes, use_sliding_window, step_size, use_gaussian,
-                    all_in_gpu=all_in_gpu, verbose=False)[1]
+                softmax_pred = self.predict_preprocessed_data_return_seg_and_softmax(data[:-1],
+                                                                                     do_mirroring=do_mirroring,
+                                                                                     mirror_axes=mirror_axes,
+                                                                                     use_sliding_window=use_sliding_window,
+                                                                                     step_size=step_size,
+                                                                                     use_gaussian=use_gaussian,
+                                                                                     all_in_gpu=all_in_gpu,
+                                                                                     verbose=False,
+                                                                                     mixed_precision=self.fp16)[1]
 
                 # this does not do anything in brats -> remove this line
                 # softmax_pred = softmax_pred.transpose([0] + [i + 1 for i in self.transpose_backward])

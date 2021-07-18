@@ -18,9 +18,9 @@ from typing import Tuple
 
 import numpy as np
 import torch
+from nnunet.training.data_augmentation.data_augmentation_moreDA import get_moreDA_augmentation
 from nnunet.training.loss_functions.deep_supervision import MultipleOutputLoss2
 from nnunet.utilities.to_torch import maybe_to_torch, to_cuda
-from nnunet.training.data_augmentation.default_data_augmentation import get_moreDA_augmentation
 from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.network_architecture.initialization import InitWeights_He
 from nnunet.network_architecture.neural_network import SegmentationNetwork
@@ -29,15 +29,11 @@ from nnunet.training.data_augmentation.default_data_augmentation import default_
 from nnunet.training.dataloading.dataset_loading import unpack_dataset
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.utilities.nd_softmax import softmax_helper
+from sklearn.model_selection import KFold
 from torch import nn
-from torch.nn.utils import clip_grad_norm_
+from torch.cuda.amp import autocast
 from nnunet.training.learning_rate.poly_lr import poly_lr
 from batchgenerators.utilities.file_and_folder_operations import *
-
-try:
-    from apex import amp
-except ImportError:
-    amp = None
 
 
 class nnUNetTrainerV2(nnUNetTrainer):
@@ -112,7 +108,8 @@ class nnUNetTrainerV2(nnUNetTrainer):
                         'patch_size_for_spatialtransform'],
                     self.data_aug_params,
                     deep_supervision_scales=self.deep_supervision_scales,
-                    pin_memory=self.pin_memory
+                    pin_memory=self.pin_memory,
+                    use_nondetMultiThreadedAugmenter=False
                 )
                 self.print_to_log_file("TRAINING KEYS:\n %s" % (str(self.dataset_tr.keys())),
                                        also_print_to_console=False)
@@ -185,34 +182,41 @@ class nnUNetTrainerV2(nnUNetTrainer):
     def validate(self, do_mirroring: bool = True, use_sliding_window: bool = True,
                  step_size: float = 0.5, save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
                  validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
-                 force_separate_z: bool = None, interpolation_order: int = 3, interpolation_order_z=0):
+                 segmentation_export_kwargs: dict = None, run_postprocessing_on_folds: bool = True):
         """
         We need to wrap this because we need to enforce self.network.do_ds = False for prediction
         """
         ds = self.network.do_ds
         self.network.do_ds = False
-        ret = super().validate(do_mirroring, use_sliding_window, step_size, save_softmax, use_gaussian,
-                               overwrite, validation_folder_name, debug, all_in_gpu,
-                               force_separate_z=force_separate_z, interpolation_order=interpolation_order,
-                               interpolation_order_z=interpolation_order_z)
+        ret = super().validate(do_mirroring=do_mirroring, use_sliding_window=use_sliding_window, step_size=step_size,
+                               save_softmax=save_softmax, use_gaussian=use_gaussian,
+                               overwrite=overwrite, validation_folder_name=validation_folder_name, debug=debug,
+                               all_in_gpu=all_in_gpu, segmentation_export_kwargs=segmentation_export_kwargs,
+                               run_postprocessing_on_folds=run_postprocessing_on_folds)
+
         self.network.do_ds = ds
         return ret
 
     def predict_preprocessed_data_return_seg_and_softmax(self, data: np.ndarray, do_mirroring: bool = True,
                                                          mirror_axes: Tuple[int] = None,
-                                                         use_sliding_window: bool = True,
-                                                         step_size: float = 0.5, use_gaussian: bool = True,
-                                                         pad_border_mode: str = 'constant', pad_kwargs: dict = None,
-                                                         all_in_gpu: bool = True,
-                                                         verbose: bool = True) -> Tuple[np.ndarray, np.ndarray]:
+                                                         use_sliding_window: bool = True, step_size: float = 0.5,
+                                                         use_gaussian: bool = True, pad_border_mode: str = 'constant',
+                                                         pad_kwargs: dict = None, all_in_gpu: bool = False,
+                                                         verbose: bool = True, mixed_precision=True) -> Tuple[np.ndarray, np.ndarray]:
         """
         We need to wrap this because we need to enforce self.network.do_ds = False for prediction
         """
         ds = self.network.do_ds
         self.network.do_ds = False
-        ret = super().predict_preprocessed_data_return_seg_and_softmax(data, do_mirroring, mirror_axes,
-                                                                       use_sliding_window, step_size, use_gaussian,
-                                                                       pad_border_mode, pad_kwargs, all_in_gpu, verbose)
+        ret = super().predict_preprocessed_data_return_seg_and_softmax(data,
+                                                                       do_mirroring=do_mirroring,
+                                                                       mirror_axes=mirror_axes,
+                                                                       use_sliding_window=use_sliding_window,
+                                                                       step_size=step_size, use_gaussian=use_gaussian,
+                                                                       pad_border_mode=pad_border_mode,
+                                                                       pad_kwargs=pad_kwargs, all_in_gpu=all_in_gpu,
+                                                                       verbose=verbose,
+                                                                       mixed_precision=mixed_precision)
         self.network.do_ds = ds
         return ret
 
@@ -238,48 +242,99 @@ class nnUNetTrainerV2(nnUNetTrainer):
 
         self.optimizer.zero_grad()
 
-        output = self.network(data)
+        if self.fp16:
+            with autocast():
+                output = self.network(data)
+                del data
+                l = self.loss(output, target)
 
-        del data
-        loss = self.loss(output, target)
+            if do_backprop:
+                self.amp_grad_scaler.scale(l).backward()
+                self.amp_grad_scaler.unscale_(self.optimizer)
+                torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
+                self.amp_grad_scaler.step(self.optimizer)
+                self.amp_grad_scaler.update()
+        else:
+            output = self.network(data)
+            del data
+            l = self.loss(output, target)
+
+            if do_backprop:
+                l.backward()
+                torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
+                self.optimizer.step()
 
         if run_online_evaluation:
             self.run_online_evaluation(output, target)
+
         del target
 
-        if do_backprop:
-            if not self.fp16 or amp is None or not torch.cuda.is_available():
-                loss.backward()
-            else:
-                with amp.scale_loss(loss, self.optimizer) as scaled_loss:
-                    scaled_loss.backward()
-            _ = clip_grad_norm_(self.network.parameters(), 12)
-            self.optimizer.step()
-
-        return loss.detach().cpu().numpy()
+        return l.detach().cpu().numpy()
 
     def do_split(self):
         """
-        we now allow more than 5 splits. IMPORTANT: and fold > 4 will not be a real split but just another random
-        80:20 split of the data. You cannot run X-fold cross-validation with this code. It will always be a 5-fold CV.
-        Folds > 4 will be independent from each other
+        The default split is a 5 fold CV on all available training cases. nnU-Net will create a split (it is seeded,
+        so always the same) and save it as splits_final.pkl file in the preprocessed data directory.
+        Sometimes you may want to create your own split for various reasons. For this you will need to create your own
+        splits_final.pkl file. If this file is present, nnU-Net is going to use it and whatever splits are defined in
+        it. You can create as many splits in this file as you want. Note that if you define only 4 splits (fold 0-3)
+        and then set fold=4 when training (that would be the fifth split), nnU-Net will print a warning and proceed to
+        use a random 80:20 data split.
         :return:
         """
-        if self.fold == 'all' or self.fold < 5:
-            return super().do_split()
+        if self.fold == "all":
+            # if fold==all then we use all images for training and validation
+            tr_keys = val_keys = list(self.dataset.keys())
         else:
-            rnd = np.random.RandomState(seed=12345 + self.fold)
-            keys = np.sort(list(self.dataset.keys()))
-            idx_tr = rnd.choice(len(keys), int(len(keys) * 0.8), replace=False)
-            idx_val = [i for i in range(len(keys)) if i not in idx_tr]
+            splits_file = join(self.dataset_directory, "splits_final.pkl")
 
-            self.dataset_tr = OrderedDict()
-            for i in idx_tr:
-                self.dataset_tr[keys[i]] = self.dataset[keys[i]]
+            # if the split file does not exist we need to create it
+            if not isfile(splits_file):
+                self.print_to_log_file("Creating new 5-fold cross-validation split...")
+                splits = []
+                all_keys_sorted = np.sort(list(self.dataset.keys()))
+                kfold = KFold(n_splits=5, shuffle=True, random_state=12345)
+                for i, (train_idx, test_idx) in enumerate(kfold.split(all_keys_sorted)):
+                    train_keys = np.array(all_keys_sorted)[train_idx]
+                    test_keys = np.array(all_keys_sorted)[test_idx]
+                    splits.append(OrderedDict())
+                    splits[-1]['train'] = train_keys
+                    splits[-1]['val'] = test_keys
+                save_pickle(splits, splits_file)
 
-            self.dataset_val = OrderedDict()
-            for i in idx_val:
-                self.dataset_val[keys[i]] = self.dataset[keys[i]]
+            else:
+                self.print_to_log_file("Using splits from existing split file:", splits_file)
+                splits = load_pickle(splits_file)
+                self.print_to_log_file("The split file contains %d splits." % len(splits))
+
+            self.print_to_log_file("Desired fold for training: %d" % self.fold)
+            if self.fold < len(splits):
+                tr_keys = splits[self.fold]['train']
+                val_keys = splits[self.fold]['val']
+                self.print_to_log_file("This split has %d training and %d validation cases."
+                                       % (len(tr_keys), len(val_keys)))
+            else:
+                self.print_to_log_file("INFO: You requested fold %d for training but splits "
+                                       "contain only %d folds. I am now creating a "
+                                       "random (but seeded) 80:20 split!" % (self.fold, len(splits)))
+                # if we request a fold that is not in the split file, create a random 80:20 split
+                rnd = np.random.RandomState(seed=12345 + self.fold)
+                keys = np.sort(list(self.dataset.keys()))
+                idx_tr = rnd.choice(len(keys), int(len(keys) * 0.8), replace=False)
+                idx_val = [i for i in range(len(keys)) if i not in idx_tr]
+                tr_keys = [keys[i] for i in idx_tr]
+                val_keys = [keys[i] for i in idx_val]
+                self.print_to_log_file("This random 80:20 split has %d training and %d validation cases."
+                                       % (len(tr_keys), len(val_keys)))
+
+        tr_keys.sort()
+        val_keys.sort()
+        self.dataset_tr = OrderedDict()
+        for i in tr_keys:
+            self.dataset_tr[i] = self.dataset[i]
+        self.dataset_val = OrderedDict()
+        for i in val_keys:
+            self.dataset_val[i] = self.dataset[i]
 
     def setup_DA_params(self):
         """

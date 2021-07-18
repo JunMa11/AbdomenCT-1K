@@ -21,6 +21,7 @@ from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.network_architecture.neural_network import SegmentationNetwork
 from sklearn.model_selection import KFold
 from torch import nn
+from torch.cuda.amp import GradScaler, autocast
 from torch.optim.lr_scheduler import _LRScheduler
 
 matplotlib.use("agg")
@@ -35,11 +36,7 @@ import torch.backends.cudnn as cudnn
 from abc import abstractmethod
 from datetime import datetime
 from tqdm import trange
-
-try:
-    from apex import amp
-except ImportError:
-    amp = None
+from nnunet.utilities.to_torch import maybe_to_torch, to_cuda
 
 
 class NetworkTrainer(object):
@@ -60,7 +57,7 @@ class NetworkTrainer(object):
         - predict_test_case
         """
         self.fp16 = fp16
-        self.amp_initialized = False
+        self.amp_grad_scaler = None
 
         if deterministic:
             np.random.seed(12345)
@@ -97,8 +94,6 @@ class NetworkTrainer(object):
         # too high the training will take forever
         self.train_loss_MA_alpha = 0.93  # alpha * old + (1-alpha) * new
         self.train_loss_MA_eps = 5e-4  # new MA must be at least this much better (smaller)
-        self.save_every = 50
-        self.save_latest_only = True
         self.max_num_epochs = 1000
         self.num_batches_per_epoch = 250
         self.num_val_batches_per_epoch = 50
@@ -122,6 +117,14 @@ class NetworkTrainer(object):
         self.use_progress_bar = False
         if 'nnunet_use_progress_bar' in os.environ.keys():
             self.use_progress_bar = bool(int(os.environ['nnunet_use_progress_bar']))
+
+        ################# Settings for saving checkpoints ##################################
+        self.save_every = 50
+        self.save_latest_only = True  # if false it will not store/overwrite _latest but separate files each
+        # time an intermediate checkpoint is created
+        self.save_intermediate_checkpoints = True  # whether or not to save checkpoint_latest
+        self.save_best_checkpoint = True  # whether or not to save the best checkpoint according to self.best_val_eval_criterion_MA
+        self.save_final_checkpoint = True  # whether or not to save the final checkpoint
 
     @abstractmethod
     def initialize(self, training=True):
@@ -270,14 +273,18 @@ class NetworkTrainer(object):
             optimizer_state_dict = None
 
         self.print_to_log_file("saving checkpoint...")
-        torch.save({
+        save_this = {
             'epoch': self.epoch + 1,
             'state_dict': state_dict,
             'optimizer_state_dict': optimizer_state_dict,
             'lr_scheduler_state_dict': lr_sched_state_dct,
             'plot_stuff': (self.all_tr_losses, self.all_val_losses, self.all_val_losses_tr_mode,
-                           self.all_val_eval_metrics)},
-            fname)
+                           self.all_val_eval_metrics),
+            'best_stuff' : (self.best_epoch_based_on_MA_tr_loss, self.best_MA_tr_loss_for_patience, self.best_val_eval_criterion_MA)}
+        if self.amp_grad_scaler is not None:
+            save_this['amp_grad_scaler'] = self.amp_grad_scaler.state_dict()
+
+        torch.save(save_this, fname)
         self.print_to_log_file("done, saving took %.2f seconds" % (time() - start_time))
 
     def load_best_checkpoint(self, train=True):
@@ -299,6 +306,12 @@ class NetworkTrainer(object):
             return self.load_best_checkpoint(train)
         raise RuntimeError("No checkpoint found")
 
+    def load_final_checkpoint(self, train=False):
+        filename = join(self.output_folder, "model_final_checkpoint.model")
+        if not isfile(filename):
+            raise RuntimeError("Final checkpoint not found. Expected: %s. Please finish the training first." % filename)
+        return self.load_checkpoint(filename, train=train)
+
     def load_checkpoint(self, fname, train=True):
         self.print_to_log_file("loading checkpoint", fname, "train=", train)
         if not self.was_initialized:
@@ -306,85 +319,6 @@ class NetworkTrainer(object):
         # saved_model = torch.load(fname, map_location=torch.device('cuda', torch.cuda.current_device()))
         saved_model = torch.load(fname, map_location=torch.device('cpu'))
         self.load_checkpoint_ram(saved_model, train)
-        
-    def load_possible_checkpoint_with_init_optimizer(self, train=True):
-        if isfile(join(self.output_folder, "model_final_checkpoint.model")):
-            return self.load_checkpoint_with_init_optimizer(join(self.output_folder, "model_final_checkpoint.model"), train=train)
-        if isfile(join(self.output_folder, "model_latest.model")):
-            return self.load_checkpoint_with_init_optimizer(join(self.output_folder, "model_latest.model"), train=train)
-        if isfile(join(self.output_folder, "model_best.model")):
-            return self.load_checkpoint_with_init_optimizer(join(self.output_folder, "model_best.model"), train=train)
-        raise RuntimeError("No checkpoint found")
-        
-    def load_checkpoint_with_init_optimizer(self, fname, train=True):
-        self.print_to_log_file("loading checkpoint with initialized optimizer", fname, "train=", train)
-        if not self.was_initialized:
-            self.initialize(train)
-        # saved_model = torch.load(fname, map_location=torch.device('cuda', torch.cuda.current_device()))
-        saved_model = torch.load(fname, map_location=torch.device('cpu'))
-        self.load_checkpoint_ram_with_init_optimizer(saved_model, train)
-        
-    def load_checkpoint_ram_with_init_optimizer(self, saved_model, train=True):
-        """
-        used for if the checkpoint is already in ram
-        :param saved_model:
-        :param train:
-        :return:
-        """
-        if not self.was_initialized:
-            self.initialize(train)
-
-        new_state_dict = OrderedDict()
-        curr_state_dict_keys = list(self.network.state_dict().keys())
-        # if state dict comes form nn.DataParallel but we use non-parallel model here then the state dict keys do not
-        # match. Use heuristic to make it match
-        for k, value in saved_model['state_dict'].items():
-            key = k
-            if key not in curr_state_dict_keys:
-                print("duh")
-                key = key[7:]
-            new_state_dict[key] = value
-
-        # if we are fp16, then we need to reinitialize the network and the optimizer. Otherwise amp will throw an error
-        if self.fp16:
-            self.network, self.optimizer, self.lr_scheduler = None, None, None
-            self.initialize_network()
-            self.initialize_optimizer_and_scheduler()
-
-        self.network.load_state_dict(new_state_dict)
-        # self.epoch = saved_model['epoch']
-        self.epoch = 0
-        # if train:
-        #     optimizer_state_dict = saved_model['optimizer_state_dict']
-        #     if optimizer_state_dict is not None:
-        #         self.optimizer.load_state_dict(optimizer_state_dict)
-        # 
-        #     if self.lr_scheduler is not None and hasattr(self.lr_scheduler, 'load_state_dict') and saved_model[
-        #         'lr_scheduler_state_dict'] is not None:
-        #         self.lr_scheduler.load_state_dict(saved_model['lr_scheduler_state_dict'])
-        # 
-        #     if issubclass(self.lr_scheduler.__class__, _LRScheduler):
-        #         self.lr_scheduler.step(self.epoch)
-
-        self.all_tr_losses, self.all_val_losses, self.all_val_losses_tr_mode, self.all_val_eval_metrics = saved_model[
-            'plot_stuff']
-
-        # after the training is done, the epoch is incremented one more time in my old code. This results in
-        # self.epoch = 1001 for old trained models when the epoch is actually 1000. This causes issues because
-        # len(self.all_tr_losses) = 1000 and the plot function will fail. We can easily detect and correct that here
-        if self.epoch != len(self.all_tr_losses):
-            self.print_to_log_file("WARNING in loading checkpoint: self.epoch != len(self.all_tr_losses). This is "
-                                   "due to an old bug and should only appear when you are loading old models. New "
-                                   "models should have this fixed! self.epoch is now set to len(self.all_tr_losses)")
-            # self.epoch = len(self.all_tr_losses)
-            self.epoch = 0
-            self.all_tr_losses = self.all_tr_losses[:self.epoch]
-            self.all_val_losses = self.all_val_losses[:self.epoch]
-            self.all_val_losses_tr_mode = self.all_val_losses_tr_mode[:self.epoch]
-            self.all_val_eval_metrics = self.all_val_eval_metrics[:self.epoch]
-
-        self.amp_initialized = False
-        self._maybe_init_amp()
 
     @abstractmethod
     def initialize_network(self):
@@ -402,10 +336,10 @@ class NetworkTrainer(object):
         """
         pass
 
-    def load_checkpoint_ram(self, saved_model, train=True):
+    def load_checkpoint_ram(self, checkpoint, train=True):
         """
         used for if the checkpoint is already in ram
-        :param saved_model:
+        :param checkpoint:
         :param train:
         :return:
         """
@@ -416,35 +350,38 @@ class NetworkTrainer(object):
         curr_state_dict_keys = list(self.network.state_dict().keys())
         # if state dict comes form nn.DataParallel but we use non-parallel model here then the state dict keys do not
         # match. Use heuristic to make it match
-        for k, value in saved_model['state_dict'].items():
+        for k, value in checkpoint['state_dict'].items():
             key = k
-            if key not in curr_state_dict_keys:
-                print("duh")
+            if key not in curr_state_dict_keys and key.startswith('module.'):
                 key = key[7:]
             new_state_dict[key] = value
 
-        # if we are fp16, then we need to reinitialize the network and the optimizer. Otherwise amp will throw an error
         if self.fp16:
-            self.network, self.optimizer, self.lr_scheduler = None, None, None
-            self.initialize_network()
-            self.initialize_optimizer_and_scheduler()
+            self._maybe_init_amp()
+            if 'amp_grad_scaler' in checkpoint.keys():
+                self.amp_grad_scaler.load_state_dict(checkpoint['amp_grad_scaler'])
 
         self.network.load_state_dict(new_state_dict)
-        self.epoch = saved_model['epoch']
+        self.epoch = checkpoint['epoch']
         if train:
-            optimizer_state_dict = saved_model['optimizer_state_dict']
+            optimizer_state_dict = checkpoint['optimizer_state_dict']
             if optimizer_state_dict is not None:
                 self.optimizer.load_state_dict(optimizer_state_dict)
 
-            if self.lr_scheduler is not None and hasattr(self.lr_scheduler, 'load_state_dict') and saved_model[
+            if self.lr_scheduler is not None and hasattr(self.lr_scheduler, 'load_state_dict') and checkpoint[
                 'lr_scheduler_state_dict'] is not None:
-                self.lr_scheduler.load_state_dict(saved_model['lr_scheduler_state_dict'])
+                self.lr_scheduler.load_state_dict(checkpoint['lr_scheduler_state_dict'])
 
             if issubclass(self.lr_scheduler.__class__, _LRScheduler):
                 self.lr_scheduler.step(self.epoch)
 
-        self.all_tr_losses, self.all_val_losses, self.all_val_losses_tr_mode, self.all_val_eval_metrics = saved_model[
+        self.all_tr_losses, self.all_val_losses, self.all_val_losses_tr_mode, self.all_val_eval_metrics = checkpoint[
             'plot_stuff']
+
+        # load best loss (if present)
+        if 'best_stuff' in checkpoint.keys():
+            self.best_epoch_based_on_MA_tr_loss, self.best_MA_tr_loss_for_patience, self.best_val_eval_criterion_MA = checkpoint[
+                'best_stuff']
 
         # after the training is done, the epoch is incremented one more time in my old code. This results in
         # self.epoch = 1001 for old trained models when the epoch is actually 1000. This causes issues because
@@ -459,19 +396,11 @@ class NetworkTrainer(object):
             self.all_val_losses_tr_mode = self.all_val_losses_tr_mode[:self.epoch]
             self.all_val_eval_metrics = self.all_val_eval_metrics[:self.epoch]
 
-        self.amp_initialized = False
         self._maybe_init_amp()
 
     def _maybe_init_amp(self):
-        # we use fp16 for training only, not inference
-        if self.fp16 and torch.cuda.is_available():
-            if not self.amp_initialized:
-                if amp is not None:
-                    self.network, self.optimizer = amp.initialize(self.network, self.optimizer, opt_level="O1")
-                    self.amp_initialized = True
-                else:
-                    raise RuntimeError("WARNING: FP16 training was requested but nvidia apex is not installed. "
-                                       "Install it from https://github.com/NVIDIA/apex")
+        if self.fp16 and self.amp_grad_scaler is None:
+            self.amp_grad_scaler = GradScaler()
 
     def plot_network_architecture(self):
         """
@@ -482,6 +411,9 @@ class NetworkTrainer(object):
         pass
 
     def run_training(self):
+        if not torch.cuda.is_available():
+            self.print_to_log_file("WARNING!!! You are attempting to run training on a CPU (torch.cuda.is_available() is False). This can be VERY slow!")
+
         _ = self.tr_gen.next()
         _ = self.val_gen.next()
 
@@ -490,14 +422,13 @@ class NetworkTrainer(object):
 
         self._maybe_init_amp()
 
+        maybe_mkdir_p(self.output_folder)        
         self.plot_network_architecture()
 
         if cudnn.benchmark and cudnn.deterministic:
             warn("torch.backends.cudnn.deterministic is True indicating a deterministic training is desired. "
                  "But torch.backends.cudnn.benchmark is True as well and this will prevent deterministic training! "
                  "If you want deterministic then set benchmark=False")
-
-        maybe_mkdir_p(self.output_folder)
 
         if not self.was_initialized:
             self.initialize(True)
@@ -562,7 +493,7 @@ class NetworkTrainer(object):
 
         self.epoch -= 1  # if we don't do this we can get a problem with loading model_final_checkpoint.
 
-        self.save_checkpoint(join(self.output_folder, "model_final_checkpoint.model"))
+        if self.save_final_checkpoint: self.save_checkpoint(join(self.output_folder, "model_final_checkpoint.model"))
         # now we can delete latest as it will be identical with final
         if isfile(join(self.output_folder, "model_latest.model")):
             os.remove(join(self.output_folder, "model_latest.model"))
@@ -586,7 +517,7 @@ class NetworkTrainer(object):
         Saves a checkpoint every save_ever epochs.
         :return:
         """
-        if self.epoch % self.save_every == (self.save_every - 1):
+        if self.save_intermediate_checkpoints and (self.epoch % self.save_every == (self.save_every - 1)):
             self.print_to_log_file("saving scheduled checkpoint file...")
             if not self.save_latest_only:
                 self.save_checkpoint(join(self.output_folder, "model_ep_%03.0d.model" % (self.epoch + 1)))
@@ -642,7 +573,7 @@ class NetworkTrainer(object):
             if self.val_eval_criterion_MA > self.best_val_eval_criterion_MA:
                 self.best_val_eval_criterion_MA = self.val_eval_criterion_MA
                 #self.print_to_log_file("saving best epoch checkpoint...")
-                self.save_checkpoint(join(self.output_folder, "model_best.model"))
+                if self.save_best_checkpoint: self.save_checkpoint(join(self.output_folder, "model_best.model"))
 
             # Now see if the moving average of the train loss has improved. If yes then reset patience, else
             # increase patience
@@ -697,32 +628,38 @@ class NetworkTrainer(object):
         data = data_dict['data']
         target = data_dict['target']
 
-        if not isinstance(data, torch.Tensor):
-            data = torch.from_numpy(data).float()
-        if not isinstance(target, torch.Tensor):
-            target = torch.from_numpy(target).float()
+        data = maybe_to_torch(data)
+        target = maybe_to_torch(target)
 
         if torch.cuda.is_available():
-            data = data.cuda(non_blocking=True)
-            target = target.cuda(non_blocking=True)
+            data = to_cuda(data)
+            target = to_cuda(target)
 
         self.optimizer.zero_grad()
-        output = self.network(data)
-        del data
-        l = self.loss(output, target)
+
+        if self.fp16:
+            with autocast():
+                output = self.network(data)
+                del data
+                l = self.loss(output, target)
+
+            if do_backprop:
+                self.amp_grad_scaler.scale(l).backward()
+                self.amp_grad_scaler.step(self.optimizer)
+                self.amp_grad_scaler.update()
+        else:
+            output = self.network(data)
+            del data
+            l = self.loss(output, target)
+
+            if do_backprop:
+                l.backward()
+                self.optimizer.step()
 
         if run_online_evaluation:
             self.run_online_evaluation(output, target)
 
         del target
-
-        if do_backprop:
-            if not self.fp16 or amp is None or not torch.cuda.is_available():
-                l.backward()
-            else:
-                with amp.scale_loss(l, self.optimizer) as scaled_loss:
-                    scaled_loss.backward()
-            self.optimizer.step()
 
         return l.detach().cpu().numpy()
 

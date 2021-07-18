@@ -18,8 +18,7 @@ from time import sleep
 import matplotlib
 from nnunet.configuration import default_num_threads
 from nnunet.postprocessing.connected_components import determine_postprocessing
-from nnunet.training.data_augmentation.default_data_augmentation import get_default_augmentation, \
-    get_moreDA_augmentation
+from nnunet.training.data_augmentation.data_augmentation_moreDA import get_moreDA_augmentation
 from nnunet.training.dataloading.dataset_loading import DataLoader3D, unpack_dataset
 from nnunet.evaluation.evaluator import aggregate_scores
 from nnunet.network_architecture.neural_network import SegmentationNetwork
@@ -63,7 +62,9 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
             self.dataset[k]['seg_from_prev_stage_file'] = join(self.folder_with_segs_from_prev_stage,
                                                                k + "_segFromPrevStage.npz")
             assert isfile(self.dataset[k]['seg_from_prev_stage_file']), \
-                "seg from prev stage missing: %s" % (self.dataset[k]['seg_from_prev_stage_file'])
+                "seg from prev stage missing: %s. " \
+                "Please run all 5 folds of the 3d_lowres configuration of this " \
+                "task!" % (self.dataset[k]['seg_from_prev_stage_file'])
         for k in self.dataset_val:
             self.dataset_val[k]['seg_from_prev_stage_file'] = join(self.folder_with_segs_from_prev_stage,
                                                                    k + "_segFromPrevStage.npz")
@@ -84,6 +85,7 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
                                   pad_mode="constant", pad_sides=self.pad_all_sides)
         else:
             raise NotImplementedError("2D has no cascade")
+
         return dl_tr, dl_val
 
     def process_plans(self, plans):
@@ -93,7 +95,7 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
     def setup_DA_params(self):
         super().setup_DA_params()
 
-        self.data_aug_params["num_cached_per_thread"] = 9
+        self.data_aug_params["num_cached_per_thread"] = 2
 
         self.data_aug_params['move_last_seg_chanel_to_data'] = True
         self.data_aug_params['cascade_do_cascade_augmentations'] = True
@@ -188,16 +190,29 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
     def validate(self, do_mirroring: bool = True, use_sliding_window: bool = True, step_size: float = 0.5,
                  save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
                  validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
-                 force_separate_z: bool = None, interpolation_order: int = 3, interpolation_order_z=0):
+                 segmentation_export_kwargs: dict = None, run_postprocessing_on_folds: bool = True):
         assert self.was_initialized, "must initialize, ideally with checkpoint (or train first)"
 
         current_mode = self.network.training
         self.network.eval()
-
         # save whether network is in deep supervision mode or not
         ds = self.network.do_ds
         # disable deep supervision
         self.network.do_ds = False
+
+        if segmentation_export_kwargs is None:
+            if 'segmentation_export_params' in self.plans.keys():
+                force_separate_z = self.plans['segmentation_export_params']['force_separate_z']
+                interpolation_order = self.plans['segmentation_export_params']['interpolation_order']
+                interpolation_order_z = self.plans['segmentation_export_params']['interpolation_order_z']
+            else:
+                force_separate_z = None
+                interpolation_order = 1
+                interpolation_order_z = 0
+        else:
+            force_separate_z = segmentation_export_kwargs['force_separate_z']
+            interpolation_order = segmentation_export_kwargs['interpolation_order']
+            interpolation_order_z = segmentation_export_kwargs['interpolation_order_z']
 
         if self.dataset_val is None:
             self.load_dataset()
@@ -215,9 +230,7 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
                          'validation_folder_name': validation_folder_name,
                          'debug': debug,
                          'all_in_gpu': all_in_gpu,
-                         'force_separate_z': force_separate_z,
-                         'interpolation_order': interpolation_order,
-                         'interpolation_order_z': interpolation_order_z,
+                         'segmentation_export_kwargs': segmentation_export_kwargs,
                          }
         save_json(my_input_args, join(output_folder, "validation_args.json"))
 
@@ -234,7 +247,7 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
         results = []
 
         for k in self.dataset_val.keys():
-            properties = self.dataset[k]['properties']
+            properties = load_pickle(self.dataset[k]['properties_file'])
             fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
 
             if overwrite or (not isfile(join(output_folder, fname + ".nii.gz"))) or \
@@ -247,11 +260,17 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
 
                 print(k, data.shape)
                 data[-1][data[-1] == -1] = 0
+
                 data_for_net = np.concatenate((data[:-1], to_one_hot(seg_from_prev_stage[0], range(1, self.num_classes))))
 
-                softmax_pred = self.predict_preprocessed_data_return_seg_and_softmax(
-                    data_for_net, do_mirroring, mirror_axes, use_sliding_window, step_size, use_gaussian,
-                    all_in_gpu=all_in_gpu)[1]
+                softmax_pred = self.predict_preprocessed_data_return_seg_and_softmax(data_for_net,
+                                                                                     do_mirroring=do_mirroring,
+                                                                                     mirror_axes=mirror_axes,
+                                                                                     use_sliding_window=use_sliding_window,
+                                                                                     step_size=step_size,
+                                                                                     use_gaussian=use_gaussian,
+                                                                                     all_in_gpu=all_in_gpu,
+                                                                                     mixed_precision=self.fp16)[1]
 
                 softmax_pred = softmax_pred.transpose([0] + [i + 1 for i in self.transpose_backward])
 
@@ -296,15 +315,16 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
                              json_author="Fabian",
                              json_task=task, num_threads=default_num_threads)
 
-        # in the old nnunet we would stop here. Now we add a postprocessing. This postprocessing can remove everything
-        # except the largest connected component for each class. To see if this improves results, we do this for all
-        # classes and then rerun the evaluation. Those classes for which this resulted in an improved dice score will
-        # have this applied during inference as well
-        self.print_to_log_file("determining postprocessing")
-        determine_postprocessing(self.output_folder, self.gt_niftis_folder, validation_folder_name,
-                                 final_subf_name=validation_folder_name + "_postprocessed", debug=debug)
-        # after this the final predictions for the vlaidation set can be found in validation_folder_name_base + "_postprocessed"
-        # They are always in that folder, even if no postprocessing as applied!
+        if run_postprocessing_on_folds:
+            # in the old nnunet we would stop here. Now we add a postprocessing. This postprocessing can remove everything
+            # except the largest connected component for each class. To see if this improves results, we do this for all
+            # classes and then rerun the evaluation. Those classes for which this resulted in an improved dice score will
+            # have this applied during inference as well
+            self.print_to_log_file("determining postprocessing")
+            determine_postprocessing(self.output_folder, self.gt_niftis_folder, validation_folder_name,
+                                     final_subf_name=validation_folder_name + "_postprocessed", debug=debug)
+            # after this the final predictions for the vlaidation set can be found in validation_folder_name_base + "_postprocessed"
+            # They are always in that folder, even if no postprocessing as applied!
 
         # detemining postprocesing on a per-fold basis may be OK for this fold but what if another fold finds another
         # postprocesing to be better? In this case we need to consolidate. At the time the consolidation is going to be
