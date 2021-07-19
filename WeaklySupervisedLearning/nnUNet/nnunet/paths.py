@@ -18,7 +18,7 @@ from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p, 
 # do not modify these unless you know what you are doing
 my_output_identifier = "nnUNet"
 default_plans_identifier = "nnUNetPlansv2.1"
-default_data_identifier = 'nnUNet'
+default_data_identifier = 'nnUNetData_plans_v2.1'
 default_trainer = "nnUNetTrainerV2"
 default_cascade_trainer = "nnUNetTrainerV2CascadeFullRes"
 
@@ -26,12 +26,9 @@ default_cascade_trainer = "nnUNetTrainerV2CascadeFullRes"
 PLEASE READ paths.md FOR INFORMATION TO HOW TO SET THIS UP
 """
 
-# base = os.environ['nnUNet_raw_data_base'] if "nnUNet_raw_data_base" in os.environ.keys() else None
-# preprocessing_output_dir = os.environ['nnUNet_preprocessed'] if "nnUNet_preprocessed" in os.environ.keys() else None
-# network_training_output_dir_base = os.path.join(os.environ['RESULTS_FOLDER']) if "RESULTS_FOLDER" in os.environ.keys() else None
-base = '/dfsdata2/zhangyao_data/Tasks/Abdomen1K/nnUNet/nnunet/data/'
-preprocessing_output_dir = base + 'nnUNet_preprocessed/'
-network_training_output_dir_base = base + 'RESULTS_FOLDER/'
+base = os.environ['nnUNet_raw_data_base'] if "nnUNet_raw_data_base" in os.environ.keys() else None
+preprocessing_output_dir = os.environ['nnUNet_preprocessed'] if "nnUNet_preprocessed" in os.environ.keys() else None
+network_training_output_dir_base = os.path.join(os.environ['RESULTS_FOLDER']) if "RESULTS_FOLDER" in os.environ.keys() else None
 
 if base is not None:
     nnUNet_raw_data = join(base, "nnUNet_raw_data")
@@ -41,14 +38,14 @@ if base is not None:
 else:
     print("nnUNet_raw_data_base is not defined and nnU-Net can only be used on data for which preprocessed files "
           "are already present on your system. nnU-Net cannot be used for experiment planning and preprocessing like "
-          "this. If this is not intended, please read nnunet/paths.md for information on how to set this up properly.")
+          "this. If this is not intended, please read documentation/setting_up_paths.md for information on how to set this up properly.")
     nnUNet_cropped_data = nnUNet_raw_data = None
 
 if preprocessing_output_dir is not None:
     maybe_mkdir_p(preprocessing_output_dir)
 else:
     print("nnUNet_preprocessed is not defined and nnU-Net can not be used for preprocessing "
-          "or training. If this is not intended, please read nnunet/pathy.md for information on how to set this up.")
+          "or training. If this is not intended, please read documentation/setting_up_paths.md for information on how to set this up.")
     preprocessing_output_dir = None
 
 if network_training_output_dir_base is not None:
@@ -56,6 +53,6 @@ if network_training_output_dir_base is not None:
     maybe_mkdir_p(network_training_output_dir)
 else:
     print("RESULTS_FOLDER is not defined and nnU-Net cannot be used for training or "
-          "inference. If this is not intended behavior, please read nnunet/paths.md for information on how to set this "
-          "up")
+          "inference. If this is not intended behavior, please read documentation/setting_up_paths.md for information on how to set this "
+          "up.")
     network_training_output_dir = None

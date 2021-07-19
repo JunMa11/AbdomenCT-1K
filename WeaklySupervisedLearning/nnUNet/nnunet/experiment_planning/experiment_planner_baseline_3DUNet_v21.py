@@ -26,7 +26,7 @@ class ExperimentPlanner3D_v21(ExperimentPlanner):
     Combines ExperimentPlannerPoolBasedOnSpacing and ExperimentPlannerTargetSpacingForAnisoAxis
 
     We also increase the base_num_features to 32. This is solely because mixed precision training with 3D convs and
-    Nvidia apex/amp is A LOT faster if the number of filters is divisible by 8
+    amp is A LOT faster if the number of filters is divisible by 8
     """
     def __init__(self, folder_with_cropped_data, preprocessed_output_folder):
         super(ExperimentPlanner3D_v21, self).__init__(folder_with_cropped_data, preprocessed_output_folder)
@@ -50,7 +50,8 @@ class ExperimentPlanner3D_v21(ExperimentPlanner):
 
         target = np.percentile(np.vstack(spacings), self.target_spacing_percentile, 0)
 
-        # Todo this should be used to determine the new median shape. The old implementation is not 100% correct
+        # This should be used to determine the new median shape. The old implementation is not 100% correct.
+        # Fixed in 2.4
         # sizes = [np.array(i) / target * np.array(j) for i, j in zip(spacings, sizes)]
 
         target_size = np.percentile(np.vstack(sizes), self.target_spacing_percentile, 0)
@@ -65,7 +66,7 @@ class ExperimentPlanner3D_v21(ExperimentPlanner):
         other_spacings = [target[i] for i in other_axes]
         other_sizes = [target_size[i] for i in other_axes]
 
-        has_aniso_spacing = target[worst_spacing_axis] > (self.anisotropy_threshold * min(other_spacings))
+        has_aniso_spacing = target[worst_spacing_axis] > (self.anisotropy_threshold * max(other_spacings))
         has_aniso_voxels = target_size[worst_spacing_axis] * self.anisotropy_threshold < min(other_sizes)
         # we don't use the last one for now
         #median_size_in_mm = target[target_size_mm] * RESAMPLING_SEPARATE_Z_ANISOTROPY_THRESHOLD < max(target_size_mm)
@@ -74,8 +75,8 @@ class ExperimentPlanner3D_v21(ExperimentPlanner):
             spacings_of_that_axis = np.vstack(spacings)[:, worst_spacing_axis]
             target_spacing_of_that_axis = np.percentile(spacings_of_that_axis, 10)
             # don't let the spacing of that axis get higher than the other axes
-            if target_spacing_of_that_axis < min(other_spacings):
-                target_spacing_of_that_axis = max(min(other_spacings), target_spacing_of_that_axis) + 1e-5
+            if target_spacing_of_that_axis < max(other_spacings):
+                target_spacing_of_that_axis = max(max(other_spacings), target_spacing_of_that_axis) + 1e-5
             target[worst_spacing_axis] = target_spacing_of_that_axis
         return target
 
@@ -159,7 +160,7 @@ class ExperimentPlanner3D_v21(ExperimentPlanner):
         max_batch_size = np.round(self.batch_size_covers_max_percent_of_dataset * dataset_num_voxels /
                                   np.prod(input_patch_size, dtype=np.int64)).astype(int)
         max_batch_size = max(max_batch_size, self.unet_min_batch_size)
-        batch_size = min(batch_size, max_batch_size)
+        batch_size = max(1, min(batch_size, max_batch_size))
 
         do_dummy_2D_data_aug = (max(input_patch_size) / input_patch_size[
             0]) > self.anisotropy_threshold

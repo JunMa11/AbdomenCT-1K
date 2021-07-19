@@ -13,10 +13,6 @@
 #    limitations under the License.
 
 
-import sys
-sys.path.append("..")
-sys.path.append("../..")
-
 import nnunet
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.experiment_planning.DatasetAnalyzer import DatasetAnalyzer
@@ -102,7 +98,6 @@ def main():
     else:
         planner_2d = None
 
-    print(tasks)
     for t in tasks:
         print("\n\n\n", t)
         cropped_out_dir = os.path.join(nnUNet_cropped_data, t)
@@ -110,8 +105,13 @@ def main():
         #splitted_4d_output_dir_task = os.path.join(nnUNet_raw_data, t)
         #lists, modalities = create_lists_from_splitted_dataset(splitted_4d_output_dir_task)
 
-        dataset_analyzer = DatasetAnalyzer(cropped_out_dir, overwrite=False)  # this class creates the fingerprint
-        _ = dataset_analyzer.analyze_dataset()  # this will write output files that will be used by the ExperimentPlanner
+        # we need to figure out if we need the intensity propoerties. We collect them only if one of the modalities is CT
+        dataset_json = load_json(join(cropped_out_dir, 'dataset.json'))
+        modalities = list(dataset_json["modality"].values())
+        collect_intensityproperties = True if (("CT" in modalities) or ("ct" in modalities)) else False
+        dataset_analyzer = DatasetAnalyzer(cropped_out_dir, overwrite=False, num_processes=tf)  # this class creates the fingerprint
+        _ = dataset_analyzer.analyze_dataset(collect_intensityproperties)  # this will write output files that will be used by the ExperimentPlanner
+
 
         maybe_mkdir_p(preprocessing_output_dir_this_task)
         shutil.copy(join(cropped_out_dir, "dataset_properties.pkl"), preprocessing_output_dir_this_task)

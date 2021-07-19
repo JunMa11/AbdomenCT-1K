@@ -13,14 +13,11 @@
 #    limitations under the License.
 
 
-import sys
-sys.path.append("..")
-sys.path.append("../..")
-
 import argparse
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.run.default_configuration import get_default_configuration
 from nnunet.paths import default_plans_identifier
+from nnunet.run.load_pretrained_weights import load_pretrained_weights
 from nnunet.training.cascade_stuff.predict_next_stage import predict_next_stage
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.training.network_training.nnUNetTrainerCascadeFullRes import nnUNetTrainerCascadeFullRes
@@ -37,8 +34,6 @@ def main():
     parser.add_argument("-val", "--validation_only", help="use this if you want to only run the validation",
                         action="store_true")
     parser.add_argument("-c", "--continue_training", help="use this if you want to continue a training",
-                        action="store_true")
-    parser.add_argument("-cinit", "--continue_training_init", help="use this if you want to continue a training with initialized optimizer",
                         action="store_true")
     parser.add_argument("-p", help="plans identifier. Only change this if you created a custom experiment planner",
                         default=default_plans_identifier, required=False)
@@ -67,13 +62,33 @@ def main():
                         help="disable mixed precision training and run old school fp32")
     parser.add_argument("--val_folder", required=False, default="validation_raw",
                         help="name of the validation folder. No need to use this for most people")
-    parser.add_argument("--interp_order", required=False, default=3, type=int,
-                        help="order of interpolation for segmentations. Testing purpose only. Hands off")
-    parser.add_argument("--interp_order_z", required=False, default=0, type=int,
-                        help="order of interpolation along z if z is resampled separately. Testing purpose only. "
-                             "Hands off")
-    parser.add_argument("--force_separate_z", required=False, default="None", type=str,
-                        help="force_separate_z resampling. Can be None, True or False. Testing purpose only. Hands off")
+    parser.add_argument("--disable_saving", required=False, action='store_true',
+                        help="If set nnU-Net will not save any parameter files (except a temporary checkpoint that "
+                             "will be removed at the end of the training). Useful for development when you are "
+                             "only interested in the results and want to save some disk space")
+    parser.add_argument("--disable_postprocessing_on_folds", required=False, action='store_true',
+                        help="Running postprocessing on each fold only makes sense when developing with nnU-Net and "
+                             "closely observing the model performance on specific configurations. You do not need it "
+                             "when applying nnU-Net because the postprocessing for this will be determined only once "
+                             "all five folds have been trained and nnUNet_find_best_configuration is called. Usually "
+                             "running postprocessing on each fold is computationally cheap, but some users have "
+                             "reported issues with very large images. If your images are large (>600x600x600 voxels) "
+                             "you should consider setting this flag.")
+    # parser.add_argument("--interp_order", required=False, default=3, type=int,
+    #                     help="order of interpolation for segmentations. Testing purpose only. Hands off")
+    # parser.add_argument("--interp_order_z", required=False, default=0, type=int,
+    #                     help="order of interpolation along z if z is resampled separately. Testing purpose only. "
+    #                          "Hands off")
+    # parser.add_argument("--force_separate_z", required=False, default="None", type=str,
+    #                     help="force_separate_z resampling. Can be None, True or False. Testing purpose only. Hands off")
+    parser.add_argument('--val_disable_overwrite', action='store_false', default=True,
+                        help='Validation does not overwrite existing segmentations')
+    parser.add_argument('--disable_next_stage_pred', action='store_true', default=False,
+                        help='do not predict next stage')
+    parser.add_argument('-pretrained_weights', type=str, required=False, default=None,
+                        help='path to nnU-Net checkpoint file to be used as pretrained model (use .model '
+                             'file, for example model_final_checkpoint.model). Will only be used when actually training. '
+                             'Optional. Beta. Use with caution.')
 
     args = parser.parse_args()
 
@@ -84,6 +99,7 @@ def main():
     validation_only = args.validation_only
     plans_identifier = args.p
     find_lr = args.find_lr
+    disable_postprocessing_on_folds = args.disable_postprocessing_on_folds
 
     use_compressed_data = args.use_compressed_data
     decompress_data = not use_compressed_data
@@ -95,9 +111,9 @@ def main():
     run_mixed_precision = not fp32
 
     val_folder = args.val_folder
-    interp_order = args.interp_order
-    interp_order_z = args.interp_order_z
-    force_separate_z = args.force_separate_z
+    # interp_order = args.interp_order
+    # interp_order_z = args.interp_order_z
+    # force_separate_z = args.force_separate_z
 
     if not task.startswith("Task"):
         task_id = int(task)
@@ -108,14 +124,14 @@ def main():
     else:
         fold = int(fold)
 
-    if force_separate_z == "None":
-        force_separate_z = None
-    elif force_separate_z == "False":
-        force_separate_z = False
-    elif force_separate_z == "True":
-        force_separate_z = True
-    else:
-        raise ValueError("force_separate_z must be None, True or False. Given: %s" % force_separate_z)
+    # if force_separate_z == "None":
+    #     force_separate_z = None
+    # elif force_separate_z == "False":
+    #     force_separate_z = False
+    # elif force_separate_z == "True":
+    #     force_separate_z = True
+    # else:
+    #     raise ValueError("force_separate_z must be None, True or False. Given: %s" % force_separate_z)
 
     plans_file, output_folder_name, dataset_directory, batch_dice, stage, \
     trainer_class = get_default_configuration(network, task, network_trainer, plans_identifier)
@@ -136,6 +152,13 @@ def main():
                             batch_dice=batch_dice, stage=stage, unpack_data=decompress_data,
                             deterministic=deterministic,
                             fp16=run_mixed_precision)
+    if args.disable_saving:
+        trainer.save_final_checkpoint = False # whether or not to save the final checkpoint
+        trainer.save_best_checkpoint = False  # whether or not to save the best checkpoint according to
+        # self.best_val_eval_criterion_MA
+        trainer.save_intermediate_checkpoints = True  # whether or not to save checkpoint_latest. We need that in case
+        # the training chashes
+        trainer.save_latest_only = True  # if false it will not store/overwrite _latest but separate files each
 
     trainer.initialize(not validation_only)
 
@@ -143,25 +166,31 @@ def main():
         trainer.find_lr()
     else:
         if not validation_only:
-            if args.continue_training_init:
-                trainer.load_possible_checkpoint_with_init_optimizer()
             if args.continue_training:
+                # -c was set, continue a previous training and ignore pretrained weights
                 trainer.load_latest_checkpoint()
+            elif (not args.continue_training) and (args.pretrained_weights is not None):
+                # we start a new training. If pretrained_weights are set, use them
+                load_pretrained_weights(trainer.network, args.pretrained_weights)
+            else:
+                # new training without pretraine weights, do nothing
+                pass
+
             trainer.run_training()
         else:
             if valbest:
                 trainer.load_best_checkpoint(train=False)
             else:
-                trainer.load_latest_checkpoint(train=False)
+                trainer.load_final_checkpoint(train=False)
 
         trainer.network.eval()
 
         # predict validation
-        trainer.validate(save_softmax=args.npz, validation_folder_name=val_folder, force_separate_z=force_separate_z,
-                         interpolation_order=interp_order, interpolation_order_z=interp_order_z)
+        trainer.validate(save_softmax=args.npz, validation_folder_name=val_folder,
+                         run_postprocessing_on_folds=not disable_postprocessing_on_folds,
+                         overwrite=args.val_disable_overwrite)
 
-        if network == '3d_lowres':
-            trainer.load_best_checkpoint(False)
+        if network == '3d_lowres' and not args.disable_next_stage_pred:
             print("predicting segmentations for the next stage of the cascade")
             predict_next_stage(trainer, join(dataset_directory, trainer.plans['data_identifier'] + "_stage%d" % 1))
 

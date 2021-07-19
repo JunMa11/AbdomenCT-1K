@@ -41,12 +41,8 @@ from nnunet.utilities.tensor_utilities import sum_tensor
 from torch import nn
 from torch.optim import lr_scheduler
 
-matplotlib.use("agg")
 
-try:
-    from apex.parallel import DistributedDataParallel as DDP
-except ImportError:
-    DDP = None
+matplotlib.use("agg")
 
 
 class nnUNetTrainer(NetworkTrainer):
@@ -207,9 +203,10 @@ class nnUNetTrainer(NetworkTrainer):
 
         self.setup_DA_params()
 
-        self.folder_with_preprocessed_data = join(self.dataset_directory, self.plans['data_identifier'] +
-                                                  "_stage%d" % self.stage)
         if training:
+            self.folder_with_preprocessed_data = join(self.dataset_directory, self.plans['data_identifier'] +
+                                                      "_stage%d" % self.stage)
+
             self.dl_tr, self.dl_val = self.get_basic_generators()
             if self.unpack_data:
                 self.print_to_log_file("unpacking dataset")
@@ -258,7 +255,8 @@ class nnUNetTrainer(NetworkTrainer):
         net_nonlin = nn.LeakyReLU
         net_nonlin_kwargs = {'negative_slope': 1e-2, 'inplace': True}
         self.network = Generic_UNet(self.num_input_channels, self.base_num_features, self.num_classes, net_numpool,
-                                    self.conv_per_stage, 2, conv_op, norm_op, norm_op_kwargs, dropout_op, dropout_op_kwargs,
+                                    self.conv_per_stage, 2, conv_op, norm_op, norm_op_kwargs, dropout_op,
+                                    dropout_op_kwargs,
                                     net_nonlin, net_nonlin_kwargs, False, False, lambda x: x, InitWeights_He(1e-2),
                                     self.net_num_pool_op_kernel_sizes, self.net_conv_kernel_sizes, False, True, True)
         self.network.inference_apply_nonlin = softmax_helper
@@ -298,7 +296,8 @@ class nnUNetTrainer(NetworkTrainer):
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
-    def run_training(self):
+    def save_debug_information(self):
+        # saving some debug information
         dct = OrderedDict()
         for k in self.__dir__():
             if not k.startswith("__"):
@@ -315,6 +314,8 @@ class nnUNetTrainer(NetworkTrainer):
 
         shutil.copy(self.plans_file, join(self.output_folder_base, "plans.pkl"))
 
+    def run_training(self):
+        self.save_debug_information()
         super(nnUNetTrainer, self).run_training()
 
     def load_plans_file(self):
@@ -337,8 +338,27 @@ class nnUNetTrainer(NetworkTrainer):
         self.net_pool_per_axis = stage_plans['num_pool_per_axis']
         self.patch_size = np.array(stage_plans['patch_size']).astype(int)
         self.do_dummy_2D_aug = stage_plans['do_dummy_2D_data_aug']
-        self.net_num_pool_op_kernel_sizes = stage_plans['pool_op_kernel_sizes']
-        self.net_conv_kernel_sizes = stage_plans['conv_kernel_sizes']
+
+        if 'pool_op_kernel_sizes' not in stage_plans.keys():
+            assert 'num_pool_per_axis' in stage_plans.keys()
+            self.print_to_log_file("WARNING! old plans file with missing pool_op_kernel_sizes. Attempting to fix it...")
+            self.net_num_pool_op_kernel_sizes = []
+            for i in range(max(self.net_pool_per_axis)):
+                curr = []
+                for j in self.net_pool_per_axis:
+                    if (max(self.net_pool_per_axis) - j) <= i:
+                        curr.append(2)
+                    else:
+                        curr.append(1)
+                self.net_num_pool_op_kernel_sizes.append(curr)
+        else:
+            self.net_num_pool_op_kernel_sizes = stage_plans['pool_op_kernel_sizes']
+
+        if 'conv_kernel_sizes' not in stage_plans.keys():
+            self.print_to_log_file("WARNING! old plans file with missing conv_kernel_sizes. Attempting to fix it...")
+            self.net_conv_kernel_sizes = [[3] * len(self.net_pool_per_axis)] * (max(self.net_pool_per_axis) + 1)
+        else:
+            self.net_conv_kernel_sizes = stage_plans['conv_kernel_sizes']
 
         self.pad_all_sides = None  # self.patch_size
         self.intensity_properties = plans['dataset_properties']['intensityproperties']
@@ -383,19 +403,17 @@ class nnUNetTrainer(NetworkTrainer):
         if self.threeD:
             dl_tr = DataLoader3D(self.dataset_tr, self.basic_generator_patch_size, self.patch_size, self.batch_size,
                                  False, oversample_foreground_percent=self.oversample_foreground_percent,
-                                 pad_mode="constant", pad_sides=self.pad_all_sides)
+                                 pad_mode="constant", pad_sides=self.pad_all_sides, memmap_mode='r')
             dl_val = DataLoader3D(self.dataset_val, self.patch_size, self.patch_size, self.batch_size, False,
                                   oversample_foreground_percent=self.oversample_foreground_percent,
-                                  pad_mode="constant", pad_sides=self.pad_all_sides)
+                                  pad_mode="constant", pad_sides=self.pad_all_sides, memmap_mode='r')
         else:
             dl_tr = DataLoader2D(self.dataset_tr, self.basic_generator_patch_size, self.patch_size, self.batch_size,
-                                 transpose=None,  # self.plans.get('transpose_forward'),
                                  oversample_foreground_percent=self.oversample_foreground_percent,
-                                 pad_mode="constant", pad_sides=self.pad_all_sides)
+                                 pad_mode="constant", pad_sides=self.pad_all_sides, memmap_mode='r')
             dl_val = DataLoader2D(self.dataset_val, self.patch_size, self.patch_size, self.batch_size,
-                                  transpose=None,  # self.plans.get('transpose_forward'),
                                   oversample_foreground_percent=self.oversample_foreground_percent,
-                                  pad_mode="constant", pad_sides=self.pad_all_sides)
+                                  pad_mode="constant", pad_sides=self.pad_all_sides, memmap_mode='r')
         return dl_tr, dl_val
 
     def preprocess_patient(self, input_files):
@@ -419,7 +437,7 @@ class nnUNetTrainer(NetworkTrainer):
         assert preprocessor_class is not None, "Could not find preprocessor %s in nnunet.preprocessing" % \
                                                preprocessor_name
         preprocessor = preprocessor_class(self.normalization_schemes, self.use_mask_for_norm,
-                                           self.transpose_forward, self.intensity_properties)
+                                          self.transpose_forward, self.intensity_properties)
 
         d, s, properties = preprocessor.preprocess_test_case(input_files,
                                                              self.plans['plans_per_stage'][self.stage][
@@ -427,34 +445,49 @@ class nnUNetTrainer(NetworkTrainer):
         return d, s, properties
 
     def preprocess_predict_nifti(self, input_files: List[str], output_file: str = None,
-                                 softmax_ouput_file: str = None) -> None:
+                                 softmax_ouput_file: str = None, mixed_precision: bool = True) -> None:
         """
         Use this to predict new data
         :param input_files:
         :param output_file:
         :param softmax_ouput_file:
+        :param mixed_precision:
         :return:
         """
         print("preprocessing...")
         d, s, properties = self.preprocess_patient(input_files)
         print("predicting...")
-        pred = self.predict_preprocessed_data_return_seg_and_softmax(d, self.data_aug_params["do_mirror"],
-                                                                     self.data_aug_params['mirror_axes'], True, 0.5,
-                                                                     True, 'constant', {'constant_values': 0},
-                                                                     self.patch_size, True)[1]
+        pred = self.predict_preprocessed_data_return_seg_and_softmax(d, do_mirroring=self.data_aug_params["do_mirror"],
+                                                                     mirror_axes=self.data_aug_params['mirror_axes'],
+                                                                     use_sliding_window=True, step_size=0.5,
+                                                                     use_gaussian=True, pad_border_mode='constant',
+                                                                     pad_kwargs={'constant_values': 0},
+                                                                     verbose=True, all_in_gpu=False,
+                                                                     mixed_precision=mixed_precision)[1]
         pred = pred.transpose([0] + [i + 1 for i in self.transpose_backward])
 
+        if 'segmentation_export_params' in self.plans.keys():
+            force_separate_z = self.plans['segmentation_export_params']['force_separate_z']
+            interpolation_order = self.plans['segmentation_export_params']['interpolation_order']
+            interpolation_order_z = self.plans['segmentation_export_params']['interpolation_order_z']
+        else:
+            force_separate_z = None
+            interpolation_order = 1
+            interpolation_order_z = 0
+
         print("resampling to original spacing and nifti export...")
-        save_segmentation_nifti_from_softmax(pred, output_file, properties, 3, None, None, None, softmax_ouput_file,
-                                             None)
+        save_segmentation_nifti_from_softmax(pred, output_file, properties, interpolation_order,
+                                             self.regions_class_order, None, None, softmax_ouput_file,
+                                             None, force_separate_z=force_separate_z,
+                                             interpolation_order_z=interpolation_order_z)
         print("done")
 
     def predict_preprocessed_data_return_seg_and_softmax(self, data: np.ndarray, do_mirroring: bool = True,
-                                                         mirror_axes: Tuple[int] = None, use_sliding_window: bool = True,
-                                                         step_size: float = 0.5, use_gaussian: bool = True,
-                                                         pad_border_mode: str = 'constant', pad_kwargs: dict = None,
-                                                         all_in_gpu: bool = True,
-                                                         verbose: bool = True) -> Tuple[np.ndarray, np.ndarray]:
+                                                         mirror_axes: Tuple[int] = None,
+                                                         use_sliding_window: bool = True, step_size: float = 0.5,
+                                                         use_gaussian: bool = True, pad_border_mode: str = 'constant',
+                                                         pad_kwargs: dict = None, all_in_gpu: bool = False,
+                                                         verbose: bool = True, mixed_precision: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         """
         :param data:
         :param do_mirroring:
@@ -483,19 +516,21 @@ class nnUNetTrainer(NetworkTrainer):
 
         current_mode = self.network.training
         self.network.eval()
-        ret = self.network.predict_3D(data, do_mirroring, mirror_axes, use_sliding_window, step_size, self.patch_size,
-                                       self.regions_class_order, use_gaussian, pad_border_mode, pad_kwargs,
-                                       all_in_gpu, verbose)
+        ret = self.network.predict_3D(data, do_mirroring=do_mirroring, mirror_axes=mirror_axes,
+                                      use_sliding_window=use_sliding_window, step_size=step_size,
+                                      patch_size=self.patch_size, regions_class_order=self.regions_class_order,
+                                      use_gaussian=use_gaussian, pad_border_mode=pad_border_mode,
+                                      pad_kwargs=pad_kwargs, all_in_gpu=all_in_gpu, verbose=verbose,
+                                      mixed_precision=mixed_precision)
         self.network.train(current_mode)
         return ret
 
     def validate(self, do_mirroring: bool = True, use_sliding_window: bool = True, step_size: float = 0.5,
                  save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
                  validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
-                 force_separate_z: bool = None, interpolation_order: int = 3, interpolation_order_z: int = 0):
+                 segmentation_export_kwargs: dict = None, run_postprocessing_on_folds: bool = True):
         """
         if debug=True then the temporary files generated for postprocessing determination will be kept
-        :return:
         """
 
         current_mode = self.network.training
@@ -505,6 +540,20 @@ class nnUNetTrainer(NetworkTrainer):
         if self.dataset_val is None:
             self.load_dataset()
             self.do_split()
+
+        if segmentation_export_kwargs is None:
+            if 'segmentation_export_params' in self.plans.keys():
+                force_separate_z = self.plans['segmentation_export_params']['force_separate_z']
+                interpolation_order = self.plans['segmentation_export_params']['interpolation_order']
+                interpolation_order_z = self.plans['segmentation_export_params']['interpolation_order_z']
+            else:
+                force_separate_z = None
+                interpolation_order = 1
+                interpolation_order_z = 0
+        else:
+            force_separate_z = segmentation_export_kwargs['force_separate_z']
+            interpolation_order = segmentation_export_kwargs['interpolation_order']
+            interpolation_order_z = segmentation_export_kwargs['interpolation_order_z']
 
         # predictions as they come from the network go here
         output_folder = join(self.output_folder, validation_folder_name)
@@ -519,9 +568,7 @@ class nnUNetTrainer(NetworkTrainer):
                          'validation_folder_name': validation_folder_name,
                          'debug': debug,
                          'all_in_gpu': all_in_gpu,
-                         'force_separate_z': force_separate_z,
-                         'interpolation_order': interpolation_order,
-                         'interpolation_order_z': interpolation_order_z,
+                         'segmentation_export_kwargs': segmentation_export_kwargs,
                          }
         save_json(my_input_args, join(output_folder, "validation_args.json"))
 
@@ -538,7 +585,7 @@ class nnUNetTrainer(NetworkTrainer):
         results = []
 
         for k in self.dataset_val.keys():
-            properties = self.dataset[k]['properties']
+            properties = load_pickle(self.dataset[k]['properties_file'])
             fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
             if overwrite or (not isfile(join(output_folder, fname + ".nii.gz"))) or \
                     (save_softmax and not isfile(join(output_folder, fname + ".npz"))):
@@ -547,9 +594,14 @@ class nnUNetTrainer(NetworkTrainer):
                 print(k, data.shape)
                 data[-1][data[-1] == -1] = 0
 
-                softmax_pred = self.predict_preprocessed_data_return_seg_and_softmax(
-                    data[:-1], do_mirroring, mirror_axes, use_sliding_window, step_size, use_gaussian, all_in_gpu=all_in_gpu
-                )[1]
+                softmax_pred = self.predict_preprocessed_data_return_seg_and_softmax(data[:-1],
+                                                                                     do_mirroring=do_mirroring,
+                                                                                     mirror_axes=mirror_axes,
+                                                                                     use_sliding_window=use_sliding_window,
+                                                                                     step_size=step_size,
+                                                                                     use_gaussian=use_gaussian,
+                                                                                     all_in_gpu=all_in_gpu,
+                                                                                     mixed_precision=self.fp16)[1]
 
                 softmax_pred = softmax_pred.transpose([0] + [i + 1 for i in self.transpose_backward])
 
@@ -571,7 +623,8 @@ class nnUNetTrainer(NetworkTrainer):
 
                 results.append(export_pool.starmap_async(save_segmentation_nifti_from_softmax,
                                                          ((softmax_pred, join(output_folder, fname + ".nii.gz"),
-                                                           properties, interpolation_order, None, None, None,
+                                                           properties, interpolation_order, self.regions_class_order,
+                                                           None, None,
                                                            softmax_fname, None, force_separate_z,
                                                            interpolation_order_z),
                                                           )
@@ -594,15 +647,16 @@ class nnUNetTrainer(NetworkTrainer):
                              json_author="Fabian",
                              json_task=task, num_threads=default_num_threads)
 
-        # in the old nnunet we would stop here. Now we add a postprocessing. This postprocessing can remove everything
-        # except the largest connected component for each class. To see if this improves results, we do this for all
-        # classes and then rerun the evaluation. Those classes for which this resulted in an improved dice score will
-        # have this applied during inference as well
-        self.print_to_log_file("determining postprocessing")
-        determine_postprocessing(self.output_folder, self.gt_niftis_folder, validation_folder_name,
-                                 final_subf_name=validation_folder_name + "_postprocessed", debug=debug)
-        # after this the final predictions for the vlaidation set can be found in validation_folder_name_base + "_postprocessed"
-        # They are always in that folder, even if no postprocessing as applied!
+        if run_postprocessing_on_folds:
+            # in the old nnunet we would stop here. Now we add a postprocessing. This postprocessing can remove everything
+            # except the largest connected component for each class. To see if this improves results, we do this for all
+            # classes and then rerun the evaluation. Those classes for which this resulted in an improved dice score will
+            # have this applied during inference as well
+            self.print_to_log_file("determining postprocessing")
+            determine_postprocessing(self.output_folder, self.gt_niftis_folder, validation_folder_name,
+                                     final_subf_name=validation_folder_name + "_postprocessed", debug=debug)
+            # after this the final predictions for the vlaidation set can be found in validation_folder_name_base + "_postprocessed"
+            # They are always in that folder, even if no postprocessing as applied!
 
         # detemining postprocesing on a per-fold basis may be OK for this fold but what if another fold finds another
         # postprocesing to be better? In this case we need to consolidate. At the time the consolidation is going to be

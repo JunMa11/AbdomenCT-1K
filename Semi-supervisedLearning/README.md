@@ -36,26 +36,31 @@ nnUNet_train 3d_fullres nnUNetTrainerV2Finetune TaskXXX_MYTASK all
 
 Run
 ```
-
-nnUNet_predict -i INPUT_FOLDER -o OUTPUT_FOLDER -t TASK_NAME_OR_ID -m 3d_fullres -tr nnUNetTrainerV2Finetune
+nnUNet_predict -i INPUT_FOLDER -o OUTPUT_FOLDER -t TASK_NAME_OR_ID -m 3d_fullres -tr nnUNetTrainerV2Finetune -f all --disable_tta
 ```
 
 
 ## Baseline Docker
 
-- [semi-suplearn_subtask1](https://hub.docker.com/repository/docker/gospelslave/semi-suplearn_subtask1)
+- [Subtask 1: 41 labelled cases + 400 unlabelled cases](https://hub.docker.com/repository/docker/gospelslave/semi-suplearn_subtask1)
 
 Run
 
-```
+```shell
 
 # pull docker image from hub.docker.com
 docker pull gospelslave/semi-suplearn_subtask1
 
 # docker predict command
 docker container run --gpus "device=1" --name semi-suplearn_subtask1 --rm -v $PWD/TestImage/:/workspace/input/ -v $PWD/semi-suplearn_subtask1_outputs/:/workspace/outputs/ gospelslave/semi-suplearn_subtask1:latest /bin/bash -c "sh predict.sh"
-
 ```
+
+
+
+- Subtask 2: 41 labelled cases + 800 unlabelled cases
+
+
+
 
 
 ## Reference

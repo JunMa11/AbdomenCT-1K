@@ -17,23 +17,12 @@ from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 
 
 class nnUNetTrainerV2_noMirroring(nnUNetTrainerV2):
-    def validate(self, do_mirroring: bool = True, use_sliding_window: bool = True, step_size: float = 0.5,
-                 save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
+    def validate(self, do_mirroring: bool = True, use_sliding_window: bool = True,
+                 step_size: float = 0.5, save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
                  validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
-                 force_separate_z: bool = None, interpolation_order: int = 3, interpolation_order_z=0):
+                 segmentation_export_kwargs: dict = None, run_postprocessing_on_folds: bool = True):
         """
         We need to wrap this because we need to enforce self.network.do_ds = False for prediction
-
-        :param do_mirroring:
-        :param use_train_mode:
-        :param use_sliding_window:
-        :param step_size:
-        :param save_softmax:
-        :param use_gaussian:
-        :param compute_global_dice:
-        :param overwrite:
-        :param validation_folder_name:
-        :return:
         """
         ds = self.network.do_ds
         if do_mirroring:
@@ -41,10 +30,11 @@ class nnUNetTrainerV2_noMirroring(nnUNetTrainerV2):
                   "do_mirroring was set to False")
         do_mirroring = False
         self.network.do_ds = False
-        ret = super().validate(do_mirroring, use_sliding_window, step_size, save_softmax, use_gaussian,
-                               overwrite, validation_folder_name, debug, all_in_gpu,
-                               force_separate_z=force_separate_z, interpolation_order=interpolation_order,
-                               interpolation_order_z=interpolation_order_z)
+        ret = super().validate(do_mirroring=do_mirroring, use_sliding_window=use_sliding_window, step_size=step_size,
+                               save_softmax=save_softmax, use_gaussian=use_gaussian,
+                               overwrite=overwrite, validation_folder_name=validation_folder_name, debug=debug,
+                               all_in_gpu=all_in_gpu, segmentation_export_kwargs=segmentation_export_kwargs,
+                               run_postprocessing_on_folds=run_postprocessing_on_folds)
         self.network.do_ds = ds
         return ret
 

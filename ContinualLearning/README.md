@@ -32,7 +32,7 @@ Run
 
 Run
 
-`nnUNet_predict -i Test_FOLDER -o OUTPUT_FOLDER -t Task444_ContinualFourOrgans -m 3d_fullres`
+`nnUNet_predict -i Test_FOLDER -o OUTPUT_FOLDER -t Task444_ContinualFourOrgans -m 3d_fullres -f all --disable_tta`
 
 ## Baseline Docker
 

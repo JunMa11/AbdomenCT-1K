@@ -21,12 +21,12 @@ Run
 
 Run
 
-`nnUNet_predict -i INPUT_FOLDER -o OUTPUT_FOLDER -t TASK_NAME_OR_ID -m 2d --save_npz`
+`nnUNet_predict -i INPUT_FOLDER -o OUTPUT_FOLDER -t TASK_NAME_OR_ID -m 2d -disable_tta -f all --save_npz `
 
 
 ## Baseline Docker
 
-- [weakly_suplearn_subtask1](https://hub.docker.com/repository/docker/gospelslave/weakly_suplearn_subtask1)
+- [Subtask 1:  5% labels](https://hub.docker.com/repository/docker/gospelslave/weakly_suplearn_subtask1)
 
 Run
 
@@ -42,13 +42,23 @@ docker container run --gpus "device=1" --name weakly_suplearn_subtask1 --rm -v $
 
 
 
+- Subtask 1:  15% labels
+
+
+
+
+
+- Subtask 3:  30% labels
+
+
+
+
+
 ## CRF Postprocessing
 
 Set [input and output path](https://github.com/JunMa11/AbdomenCT-1K/blob/87fc206b70bbbdbb79a0e260bb9f9106d2feb555/WeaklySupervisedLearning/SimpleCRF-master/examples/AbdominalOrganCRFSeg.py#L27-L29) and run
 
 `python AbdominalOrganCRFSeg.py`
-
-
 
 
 
