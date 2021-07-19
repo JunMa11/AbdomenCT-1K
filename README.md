@@ -12,7 +12,7 @@ limited generalization ability on distinct medical centers, phases, and unseen d
 
 ## Semi-supervised Learning [(Grand-Challenge Homepage)](https://abdomenct-1k-semi-supervised-learning.grand-challenge.org/)
 
-![semi-logo](https://github.com/JunMa11/AbdomenCT-1K/blob/main/Semi-SupervisedLearning/SemiSupervised-GrandChallenge-Logo.jpeg)
+![semi-logo](https://github.com/JunMa11/AbdomenCT-1K/blob/main/Semi-supervisedLearning/SemiSupervised-GrandChallenge-Logo.jpeg)
 
 
 ## Weakly Supervised Learning [(Grand-Challenge Homepage)](https://abdomenct-1k-weaklysupervisedlearning.grand-challenge.org/)
