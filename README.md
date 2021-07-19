@@ -10,7 +10,9 @@ limited generalization ability on distinct medical centers, phases, and unseen d
 ## Fully Supervised Learning
 
 
-## Semi-supervised Learning
+## Semi-supervised Learning [(Grand-Challenge Homepage)](https://abdomenct-1k-semi-supervised-learning.grand-challenge.org/)
+
+![weak-logo](https://github.com/JunMa11/AbdomenCT-1K/blob/main/WeaklySupervisedLearning/SemiSupervised-GrandChallenge-Logo.jpeg)
 
 
 ## Weakly Supervised Learning [(Grand-Challenge Homepage)](https://abdomenct-1k-weaklysupervisedlearning.grand-challenge.org/)
