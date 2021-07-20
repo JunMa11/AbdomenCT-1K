@@ -42,7 +42,7 @@ docker container run --gpus "device=1" --name weakly_suplearn_subtask1 --rm -v $
 
 
 
-- Subtask 2:  15% labels(https://hub.docker.com/repository/docker/gospelslave/weakly_suplearn_subtask2)
+- [Subtask 2:  15% labels](https://hub.docker.com/repository/docker/gospelslave/weakly_suplearn_subtask2)
 
 Run
 
@@ -60,7 +60,7 @@ docker container run --gpus "device=1" --name weakly_suplearn_subtask2 --rm -v $
 
 
 
-- Subtask 3:  30% labels(https://hub.docker.com/repository/docker/gospelslave/weakly_suplearn_subtask3)
+- [Subtask 3:  30% labels](https://hub.docker.com/repository/docker/gospelslave/weakly_suplearn_subtask3)
 
 Run
 
