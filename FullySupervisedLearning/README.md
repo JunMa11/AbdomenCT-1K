@@ -8,7 +8,10 @@ The baseline is built on the default `3d_fullres` model in 2D nnUNet [1].
 
 Run
 
-`nnUNet_train 3d_fullres nnUNetTrainerV2 TaskXXX_MYTASK all`
+```
+nnUNet_train 3d_fullres nnUNetTrainerV2 TaskXXX_MYTASK all
+
+```
 
 ## Trained Models
 
@@ -18,22 +21,32 @@ Run
 ## Inference
 
 Run
+```
+nnUNet_predict -i INPUT_FOLDER -o OUTPUT_FOLDER -t TASK_NAME_OR_ID -m 3d_fullres --disable_tta -f all
 
-`nnUNet_predict -i INPUT_FOLDER -o OUTPUT_FOLDER -t TASK_NAME_OR_ID -m 3d_fullres --disable_tta -f all`
+```
 
 
 
 ## Baseline Docker
 
 - [Subtask 1](https://hub.docker.com/repository/docker/gospelslave/fully_suplearn_subtask1)
+- [Subtask 2](https://hub.docker.com/repository/docker/gospelslave/fully_suplearn_subtask2)
 
 Run
-
-`docker pull gospelslave/fully_suplearn_subtask1`
+```
+# subtask1
+docker pull gospelslave/fully_suplearn_subtask1
 
 `docker container run --gpus "device=1" --name fully_suplearn_subtask1 --rm -v $PWD/TestImage/:/workspace/input/ -v $PWD/fully_suplearn_subtask1_outputs/:/workspace/outputs/ gospelslave/fully_suplearn_subtask1:latest /bin/bash -c "sh predict.sh"`
 
-- Subtask 2
+# subtask2
+docker pull gospelslave/fully_suplearn_subtask2
+
+`docker container run --gpus "device=1" --name fully_suplearn_subtask2 --rm -v $PWD/TestImage/:/workspace/input/ -v $PWD/fully_suplearn_subtask2_outputs/:/workspace/outputs/ gospelslave/fully_suplearn_subtask2:latest /bin/bash -c "sh predict.sh"`
+
+
+```
 
 ## Reference
 
