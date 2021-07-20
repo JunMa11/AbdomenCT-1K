@@ -47,12 +47,34 @@ nnUNet_predict -i INPUT_FOLDER -o OUTPUT_FOLDER -t TASK_NAME_OR_ID -m 3d_fullres
 Run
 
 ```shell
-
+# subtask1
 # pull docker image from hub.docker.com
 docker pull gospelslave/semi-suplearn_subtask1
 
 # docker predict command
 docker container run --gpus "device=1" --name semi-suplearn_subtask1 --rm -v $PWD/TestImage/:/workspace/input/ -v $PWD/semi-suplearn_subtask1_outputs/:/workspace/outputs/ gospelslave/semi-suplearn_subtask1:latest /bin/bash -c "sh predict.sh"
+
+# subtask2
+# pull docker image from hub.docker.com
+docker pull gospelslave/semi-suplearn_subtask2
+
+# docker predict command
+docker container run --gpus "device=1" --name semi-suplearn_subtask2 --rm -v $PWD/TestImage/:/workspace/input/ -v $PWD/semi-suplearn_subtask2_outputs/:/workspace/outputs/ gospelslave/semi-suplearn_subtask2:latest /bin/bash -c "sh predict.sh"
+
+# lowerbound
+# pull docker image from hub.docker.com
+docker pull gospelslave/semi-suplearn_lowerbound
+
+# docker predict command
+docker container run --gpus "device=1" --name semi-suplearn_lowerbound --rm -v $PWD/TestImage/:/workspace/input/ -v $PWD/semi-suplearn_lowerbound_outputs/:/workspace/outputs/ gospelslave/semi-suplearn_lowerbound:latest /bin/bash -c "sh predict.sh"
+
+# upperbound
+# pull docker image from hub.docker.com
+docker pull gospelslave/semi-suplearn_upperbound
+
+# docker predict command
+docker container run --gpus "device=1" --name semi-suplearn_upperbound --rm -v $PWD/TestImage/:/workspace/input/ -v $PWD/semi-suplearn_upperbound_outputs/:/workspace/outputs/ gospelslave/semi-suplearn_upperbound:latest /bin/bash -c "sh predict.sh"
+
 ```
 
 
