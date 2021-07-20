@@ -36,19 +36,41 @@ Run
 docker pull gospelslave/weakly_suplearn_subtask1
 
 # docker predict command
-docker container run --gpus "device=1" --name weakly_suplearn_subtask1 --rm -v $PWD/TestImage/:/workspace/input/ -v $PWD/continual_learn_outputs/:/workspace/outputs/ gospelslave/weakly_suplearn_subtask1:latest /bin/bash -c "sh predict.sh"
+docker container run --gpus "device=1" --name weakly_suplearn_subtask1 --rm -v $PWD/TestImage/:/workspace/input/ -v $PWD/weakly_suplearn_subtask1_outputs/:/workspace/outputs/ gospelslave/weakly_suplearn_subtask1:latest /bin/bash -c "sh predict.sh"
 
 ```
 
 
 
-- Subtask 1:  15% labels
+- Subtask 2:  15% labels(https://hub.docker.com/repository/docker/gospelslave/weakly_suplearn_subtask2)
+Run
+
+```
+
+# pull docker image from hub.docker.com
+docker pull gospelslave/weakly_suplearn_subtask2
+
+# docker predict command
+docker container run --gpus "device=1" --name weakly_suplearn_subtask2 --rm -v $PWD/TestImage/:/workspace/input/ -v $PWD/weakly_suplearn_subtask2_outputs/:/workspace/outputs/ gospelslave/weakly_suplearn_subtask2:latest /bin/bash -c "sh predict.sh"
+
+```
 
 
 
 
 
-- Subtask 3:  30% labels
+- Subtask 3:  30% labels(https://hub.docker.com/repository/docker/gospelslave/weakly_suplearn_subtask3)
+Run
+
+```
+
+# pull docker image from hub.docker.com
+docker pull gospelslave/weakly_suplearn_subtask3
+
+# docker predict command
+docker container run --gpus "device=1" --name weakly_suplearn_subtask3 --rm -v $PWD/TestImage/:/workspace/input/ -v $PWD/weakly_suplearn_subtask3_outputs/:/workspace/outputs/ gospelslave/weakly_suplearn_subtask3:latest /bin/bash -c "sh predict.sh"
+
+```
 
 
 
