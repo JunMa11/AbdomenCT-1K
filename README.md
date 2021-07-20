@@ -6,8 +6,11 @@ In this work,
 limited generalization ability on distinct medical centers, phases, and unseen diseases. 
 - we further build four organ segmentation benchmarks for fully supervised, semi-supervised, weakly supervised, and continual learning, which are currently challenging and active research topics.
 
+The whole dataset can be downloaded [here]() by filling in a simple data usage tracking form. The benchmark datasets are available on the `Dataset` page in the following grand-challenge homepages. 
 
-## Fully Supervised Learning
+> Please register the challenges with your real names, affiliations, and affiliation E-mails.
+
+## Fully Supervised Learning [(Grand-Challenge Homepage)](https://abdomenct-1k-fully-supervised-learning.grand-challenge.org/)
 
 
 ## Semi-supervised Learning [(Grand-Challenge Homepage)](https://abdomenct-1k-semi-supervised-learning.grand-challenge.org/)
@@ -26,11 +29,11 @@ limited generalization ability on distinct medical centers, phases, and unseen d
 
 
 ## Further Extentions
-### 50 cases with 12 annotated organs
-we annotate 50 cases with 12 organs, including liver, kidney, spleen, pancreas, esophagus, gallbladder, stomach, aorta, celiac trunk, inferior vena cava, right adrenal gland and left adrenal gland.
+### 50 cases with 12 annotated organs [(Download)](https://www.dropbox.com/sh/vxfvtnizmm4nfkp/AACvTL5AXX2YrXWpUqMetCwua?dl=0)
+we annotate 50 cases with 12 organs, including liver, kidney, spleen, pancreas, esophagus, gallbladder, stomach, aorta, celiac trunk, inferior vena cava, right adrenal gland, and left adrenal gland.
 
 
-### 663 cases with pseudo tumor labels
+### 663 cases with pseudo tumor labels [(Download)](https://www.dropbox.com/sh/ge3bk4sux68abhx/AABmwIuuE1_s21DRfrpxADdPa?dl=0)
 It is challenging to make a definite and accurate diagnosis with only single phase CT scans because identifying the (malignant) tumor usually requires pathological examinations. As an alternative, we provide pseudo tumor labels of 663 cases by annotating all the possible tumors, which can be used for noisy label learning.
 
 
