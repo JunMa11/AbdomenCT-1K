@@ -6,7 +6,7 @@ In this work,
 limited generalization ability on distinct medical centers, phases, and unseen diseases. 
 - we further build four organ segmentation benchmarks for fully supervised, semi-supervised, weakly supervised, and continual learning, which are currently challenging and active research topics.
 
-The whole dataset can be downloaded [here]() by filling in a simple data usage tracking form. The benchmark datasets are available on the `Dataset` page in the following grand-challenge homepages. 
+The whole dataset can be downloaded [here](https://forms.gle/XDrxSgoCXs3jzn8U7) by filling in a simple data usage tracking form. The benchmark datasets are available on the `Dataset` page in the following grand-challenge homepages. 
 
 > Please register the challenges with your real names, affiliations, and affiliation E-mails.
 
