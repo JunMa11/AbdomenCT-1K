@@ -12,20 +12,21 @@ The whole dataset can be downloaded [here](https://forms.gle/XDrxSgoCXs3jzn8U7) 
 
 ## Fully Supervised Learning [(Grand-Challenge Homepage)](https://abdomenct-1k-fully-supervised-learning.grand-challenge.org/)
 
+![fully-logo](https://github.com/JunMa11/AbdomenCT-1K/blob/main/1-FullySupervisedLearning/FullySupervised-GrandChallenge-Logo.PNG)
 
 ## Semi-supervised Learning [(Grand-Challenge Homepage)](https://abdomenct-1k-semi-supervised-learning.grand-challenge.org/)
 
-![semi-logo](https://github.com/JunMa11/AbdomenCT-1K/blob/main/Semi-supervisedLearning/SemiSupervised-GrandChallenge-Logo.png)
+![semi-logo](https://github.com/JunMa11/AbdomenCT-1K/blob/main/2-Semi-supervisedLearning/SemiSupervised-GrandChallenge-Logo.png)
 
 
 ## Weakly Supervised Learning [(Grand-Challenge Homepage)](https://abdomenct-1k-weaklysupervisedlearning.grand-challenge.org/)
 
-![weak-logo](https://github.com/JunMa11/AbdomenCT-1K/blob/main/WeaklySupervisedLearning/WeaklySupervised-GrandChallenge-Logo.jpeg)
+![weak-logo](https://github.com/JunMa11/AbdomenCT-1K/blob/main/3-WeaklySupervisedLearning/WeaklySupervised-GrandChallenge-Logo.jpeg)
 
 
 ## Continual Learning [(Grand-Challenge Homepage)](https://abdomenct-1k-continual-learning.grand-challenge.org/)
 
-![continual-logo](https://github.com/JunMa11/AbdomenCT-1K/blob/main/ContinualLearning/Continual-Learning-GrandChallenge-Logo.jpg)
+![continual-logo](https://github.com/JunMa11/AbdomenCT-1K/blob/main/4-ContinualLearning/Continual-Learning-GrandChallenge-Logo.jpg)
 
 
 ## Further Extentions
