@@ -33,6 +33,8 @@ The whole dataset can be downloaded [here](https://forms.gle/XDrxSgoCXs3jzn8U7) 
 ### 50 cases with 12 annotated organs [(Download)](https://www.dropbox.com/sh/vxfvtnizmm4nfkp/AACvTL5AXX2YrXWpUqMetCwua?dl=0)
 we annotate 50 cases with 12 organs, including liver, kidney, spleen, pancreas, esophagus, gallbladder, stomach, aorta, celiac trunk, inferior vena cava, right adrenal gland, and left adrenal gland.
 
+![multi-organ-gif](https://github.com/JunMa11/AbdomenCT-1K/blob/main/1-FullySupervisedLearning/Multi-organ.gif)
+
 
 ### 663 cases with pseudo tumor labels [(Download)](https://www.dropbox.com/sh/ge3bk4sux68abhx/AABmwIuuE1_s21DRfrpxADdPa?dl=0)
 It is challenging to make a definite and accurate diagnosis with only single phase CT scans because identifying the (malignant) tumor usually requires pathological examinations. As an alternative, we provide pseudo tumor labels of 663 cases by annotating all the possible tumors, which can be used for noisy label learning.
