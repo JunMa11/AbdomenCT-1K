@@ -63,9 +63,10 @@ We highly appreciate the organizers and contributors of [NIH Pancreas dataset](h
 ```
 @article{Ma-2020-AbdomenCT-1K,
   title={AbdomenCT-1K: Is Abdominal Organ Segmentation A Solved Problem?},
-  author={Ma, Jun and Zhang, Yao and Gu, Song and Zhang, Yichi and Zhu, Cheng and Wang, Qiyuan and Liu, Xin and An, Xingle and Ge, Cheng and Cao, Shucheng and Zhang, Qi and Liu, Shangqing and Wang, Yunpeng and Li, Yuhui and Wang, Congcong and He, Jian and Yang, Xiaoping},
-  journal={arXiv preprint arXiv:2010.14808},
-  year={2020}
+  author={Ma, Jun and Zhang, Yao and Gu, Song and Zhu, Cheng and Ge, Cheng and Zhang, Yichi and An, Xingle and Wang, Congcong and Wang, Qiyuan and Liu, Xin and Cao, Shucheng and Zhang, Qi and Liu, Shangqing and Wang, Yunpeng and Li, Yuhui and He, Jian and Yang, Xiaoping},
+  journal={arXiv preprint arXiv:2010.14808v2},
+  year={2021},
+  url={https://arxiv.org/abs/2010.14808v2}
 }
 
 ```
