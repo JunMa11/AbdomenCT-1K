@@ -1,5 +1,5 @@
 # AbdomenCT-1K [(Download)](https://forms.gle/XDrxSgoCXs3jzn8U7)
-This is the official repository of "AbdomenCT-1K: Is Abdominal Organ Segmentation A Solved Problem?". 
+This is the official repository of "[AbdomenCT-1K](https://arxiv.org/abs/2010.14808v2): Is Abdominal Organ Segmentation A Solved Problem?". 
 In this work,
 - we collect a large and diverse abdominal CT organ segmentation dataset with 1000+ CT scans by augment the existing single organ datasets[1-6] with four abdominal organs, including liver, kidney, spleen, and pancreas.
 - we conduct a large-scale study for liver, kidney, spleen, and pancreas segmentation and reveal the unsolved segmentation problems of the SOTA methods, such as the
@@ -64,9 +64,9 @@ We highly appreciate the organizers and contributors of [NIH Pancreas dataset](h
 @article{Ma-2020-AbdomenCT-1K,
   title={AbdomenCT-1K: Is Abdominal Organ Segmentation A Solved Problem?},
   author={Ma, Jun and Zhang, Yao and Gu, Song and Zhu, Cheng and Ge, Cheng and Zhang, Yichi and An, Xingle and Wang, Congcong and Wang, Qiyuan and Liu, Xin and Cao, Shucheng and Zhang, Qi and Liu, Shangqing and Wang, Yunpeng and Li, Yuhui and He, Jian and Yang, Xiaoping},
-  journal={arXiv preprint arXiv:2010.14808v2},
+  journal={IEEE Transactions on Pattern Analysis and Machine Intelligence},
   year={2021},
-  url={https://arxiv.org/abs/2010.14808v2}
+  volume={in press}
 }
 
 ```
