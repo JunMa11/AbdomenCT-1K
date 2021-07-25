@@ -66,7 +66,7 @@ We highly appreciate the organizers and contributors of [NIH Pancreas dataset](h
   author={Ma, Jun and Zhang, Yao and Gu, Song and Zhu, Cheng and Ge, Cheng and Zhang, Yichi and An, Xingle and Wang, Congcong and Wang, Qiyuan and Liu, Xin and Cao, Shucheng and Zhang, Qi and Liu, Shangqing and Wang, Yunpeng and Li, Yuhui and He, Jian and Yang, Xiaoping},
   journal={IEEE Transactions on Pattern Analysis and Machine Intelligence},
   year={2021},
-  volume={in press}
+  doi={10.1109/TPAMI.2021.3100536}
 }
 
 ```
