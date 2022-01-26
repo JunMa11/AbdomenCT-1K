@@ -30,13 +30,13 @@ The whole dataset can be downloaded [here](https://forms.gle/XDrxSgoCXs3jzn8U7) 
 
 
 ## Further Extentions
-### 50 cases with 12 annotated organs [(Download)](https://www.dropbox.com/sh/vxfvtnizmm4nfkp/AACvTL5AXX2YrXWpUqMetCwua?dl=0)
+### 50 cases with 12 annotated organs [(Download)](https://pan.baidu.com/s/1LIcLcLJLXRRaJR8FdtLWug?pwd=2021)
 we annotate 50 cases with 12 organs, including liver, kidney, spleen, pancreas, esophagus, gallbladder, stomach, aorta, celiac trunk, inferior vena cava, right adrenal gland, and left adrenal gland.
 
 ![multi-organ-gif](https://github.com/JunMa11/AbdomenCT-1K/blob/main/1-FullySupervisedLearning/Multi-organ.gif)
 
 
-### 773 cases with pseudo tumor labels [(Download)](https://www.dropbox.com/sh/ge3bk4sux68abhx/AABmwIuuE1_s21DRfrpxADdPa?dl=0)
+### 773 cases with pseudo tumor labels [(Download)](https://pan.baidu.com/s/17FJfxAR6MVnYRiT-_dRNgA?pwd=2021)
 
 > Update: we add labels of 110 cases. Now, it contains 773 cases with pseudo tumor labels. The corresponding images are in the whole dataset `Case_00001-00773`.
 
