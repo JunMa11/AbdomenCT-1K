@@ -30,10 +30,11 @@ The whole dataset can be downloaded [here](https://forms.gle/XDrxSgoCXs3jzn8U7) 
 
 
 ## Further Extentions
-### 50 cases with 12 annotated organs (Download: [Baidu Netdisk](https://pan.baidu.com/s/1LIcLcLJLXRRaJR8FdtLWug?pwd=2021), [Google Drive](https://drive.google.com/file/d/1KitHJ6mt0ze66g043f2EsT88DkKjT7KM/view?usp=share_link))
-we annotate 50 cases with 12 organs, including liver, kidney, spleen, pancreas, esophagus, gallbladder, stomach, aorta, celiac trunk, inferior vena cava, right adrenal gland, and left adrenal gland.
+### 50 cases with 13 annotated organs (Download: [Zenodo](https://zenodo.org/record/7860267))
 
-![multi-organ-gif](https://github.com/JunMa11/AbdomenCT-1K/blob/main/1-FullySupervisedLearning/Multi-organ.gif)
+This dataset is used in [MICCAI FLARE2022](https://flare22.grand-challenge.org/) Challenge.
+
+![multi-organ](https://rumc-gcorg-p-public.s3.amazonaws.com/i/2022/03/29/20220309-FLARE22-Pictures-2.png)
 
 
 ### 773 cases with pseudo tumor labels (Download: [Baidu Netdisk](https://pan.baidu.com/s/17FJfxAR6MVnYRiT-_dRNgA?pwd=2021), [Google Drive](https://drive.google.com/file/d/1QXRiYN2SIquqSKld2IzdG15305WfnfIw/view?usp=share_link))
