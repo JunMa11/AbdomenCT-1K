@@ -66,11 +66,14 @@ We highly appreciate the organizers and contributors of [NIH Pancreas dataset](h
 ## Citation
 ```
 @article{Ma-2021-AbdomenCT-1K,
-  title={AbdomenCT-1K: Is Abdominal Organ Segmentation A Solved Problem?},
   author={Ma, Jun and Zhang, Yao and Gu, Song and Zhu, Cheng and Ge, Cheng and Zhang, Yichi and An, Xingle and Wang, Congcong and Wang, Qiyuan and Liu, Xin and Cao, Shucheng and Zhang, Qi and Liu, Shangqing and Wang, Yunpeng and Li, Yuhui and He, Jian and Yang, Xiaoping},
-  journal={IEEE Transactions on Pattern Analysis and Machine Intelligence},
-  year={2021},
-  doi={10.1109/TPAMI.2021.3100536}
+  journal={IEEE Transactions on Pattern Analysis and Machine Intelligence}, 
+  title={AbdomenCT-1K: Is Abdominal Organ Segmentation a Solved Problem?}, 
+  year={2022},
+  volume={44},
+  number={10},
+  pages={6695-6714},
+  doi={10.1109/TPAMI.2021.3100536}}
 }
 
 ```
