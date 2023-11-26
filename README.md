@@ -1,12 +1,22 @@
 # AbdomenCT-1K [(Download)](https://forms.gle/dcqxBt4TeG8uTGvt7)
+
 This is the official repository of "[AbdomenCT-1K](https://ieeexplore.ieee.org/document/9497733): Is Abdominal Organ Segmentation A Solved Problem?". 
 In this work,
-- we collect a large and diverse abdominal CT organ segmentation dataset with 1000+ CT scans by augment the existing single organ datasets[1-6] with four abdominal organs, including liver, kidney, spleen, and pancreas.
+- we collect a large and diverse abdominal CT organ segmentation dataset with 1000+ CT scans by augmenting the existing single organ datasets[1-6] with four abdominal organs, including liver, kidney, spleen, and pancreas.
 - we conduct a large-scale study for liver, kidney, spleen, and pancreas segmentation and reveal the unsolved segmentation problems of the SOTA methods, such as the
 limited generalization ability on distinct medical centers, phases, and unseen diseases. 
 - we further build four organ segmentation benchmarks for fully supervised, semi-supervised, weakly supervised, and continual learning, which are currently challenging and active research topics.
 
-The whole dataset can be downloaded [here](https://forms.gle/XDrxSgoCXs3jzn8U7) by filling in a simple data usage tracking form. The benchmark datasets are available on the `Dataset` page in the following grand-challenge homepages. 
+## News
+
+- 2022: Welcome to join the MICCAI [FLARE 2022 Challenge](https://flare22.grand-challenge.org/): Fast and Low-resource semi-supervised Abdominal oRgan sEgmentation
+- 2023: Welcome to join the MICCAI [FLARE 2023 Challenge](https://codalab.lisn.upsaclay.fr/competitions/12239): Fast, Low-resource, and Accurate oRgan and Pan-cancer sEgmentation 
+
+
+----------------
+
+The whole AbdomenCT-1K dataset can be downloaded [here](https://forms.gle/XDrxSgoCXs3jzn8U7) (three parts) by filling in a simple data usage tracking form. The benchmark datasets are available on the `Dataset` page in the following grand-challenge homepages. 
+
 
 > Please register the challenges with your real names, affiliations, and affiliation E-mails.
 
@@ -37,7 +47,7 @@ This dataset is used in [MICCAI FLARE2022](https://flare22.grand-challenge.org/)
 ![multi-organ](https://rumc-gcorg-p-public.s3.amazonaws.com/i/2022/03/29/20220309-FLARE22-Pictures-2.png)
 
 
-### 773 cases with pseudo tumor labels (Download: [Baidu Netdisk](https://pan.baidu.com/s/17FJfxAR6MVnYRiT-_dRNgA?pwd=2021), [Google Drive](https://drive.google.com/file/d/1QXRiYN2SIquqSKld2IzdG15305WfnfIw/view?usp=share_link))
+### 773 cases with pseudo tumor labels (Download: [Baidu Netdisk](https://pan.baidu.com/s/17FJfxAR6MVnYRiT-_dRNgA?pwd=2021), [Google Drive](https://drive.google.com/file/d/12AINDARYZDrdc66v891YT6VDxW9NsfjR/view?usp=sharing))
 
 > Update: we add labels of 110 cases. Now, it contains 773 cases with pseudo tumor labels. The corresponding images are in the whole dataset `Case_00001-00773`.
 
